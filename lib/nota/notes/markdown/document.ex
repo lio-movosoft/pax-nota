@@ -62,7 +62,14 @@ defmodule Nota.Notes.Markdown.Document do
           }
   end
 
-  @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t()
+  defmodule WikiLink do
+    @moduledoc "Wiki link inline element ([[text]])"
+    @enforce_keys [:id, :text]
+    defstruct [:id, :text]
+    @type t :: %__MODULE__{id: String.t(), text: String.t()}
+  end
+
+  @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t()
 
   # Unified block type
 

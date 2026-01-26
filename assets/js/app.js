@@ -25,6 +25,7 @@ import { LiveSocket } from "phoenix_live_view";
 import { hooks as colocatedHooks } from "phoenix-colocated/nota";
 import topbar from "../vendor/topbar";
 import MarkdownEditor from "./hooks/markdown_editor";
+import AutoFocus from "./hooks/auto_focus";
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")
@@ -65,7 +66,7 @@ const Uploaders = {
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
-  hooks: { ...colocatedHooks, MarkdownEditor },
+  hooks: { ...colocatedHooks, MarkdownEditor, AutoFocus },
   uploaders: Uploaders,
 });
 
