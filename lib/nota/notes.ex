@@ -99,8 +99,7 @@ defmodule Nota.Notes do
     search_term
     |> String.downcase()
     |> String.split(~r/\s+/, trim: true)
-    |> Enum.map(&"#{&1}:*")
-    |> Enum.join(" & ")
+    |> Enum.map_join(" & ", &"#{&1}:*")
   end
 
   defp maybe_limit(queryable, nil), do: queryable

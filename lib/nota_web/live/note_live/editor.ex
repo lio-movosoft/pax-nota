@@ -300,52 +300,7 @@ defmodule NotaWeb.NoteLive.Editor do
     end
   end
 
-  defp handle_blur_block(socket, block_id, value) do
-    # Only unfocus if we're still focused on this block
-    # (keydown Enter may have already moved focus to a new block)
-
-    if socket.assigns.focused_block_id == block_id do
-      # dbg("socket.assigns.focused_block_id == block_id")
-      # Trim trailing whitespace
-      trimmed_value = String.trim_trailing(value)
-
-      cond do
-        trimmed_value == "" ->
-          # Remove empty block from document
-          # dbg("trimmed_value is empty")
-          document = Document.remove_block(socket.assigns.document, block_id)
-
-          {:noreply,
-           socket
-           |> assign(:document, document)
-           |> assign(:focused_block_id, nil)
-           |> assign(:has_unsaved_changes, true)}
-
-        not Parser.empty?(value) ->
-          dbg("raw value is NOT empty [#{trimmed_value}]")
-          # Update block with trimmed content, then re-parse
-          document = Document.update_block(socket.assigns.document, block_id, trimmed_value)
-          body = Parser.to_markdown(document)
-          document = Parser.parse(body)
-
-          {:noreply,
-           socket
-           |> assign(:document, document)
-           |> assign(:focused_block_id, block_id)
-           |> assign(:has_unsaved_changes, true)}
-
-        true ->
-          # dbg("trimmed_value is WIP [#{trimmed_value}]")
-          {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
   # Create first block when clicking on empty document
-  # TODO - this can be generalized
-  #
   def handle_event("create_first_block", _params, socket) do
     {document, new_id} = Document.new_block(%Document{blocks: []})
 
@@ -557,6 +512,60 @@ defmodule NotaWeb.NoteLive.Editor do
      socket
      |> assign(:show_autocomplete, false)
      |> push_event("autocomplete_closed", %{block_id: socket.assigns.autocomplete_block_id})}
+  end
+
+  # === Private functions for blur handling
+
+  defp handle_blur_block(socket, block_id, value) do
+    # Only process if we're still focused on this block
+    # (keydown Enter may have already moved focus to a new block)
+    if socket.assigns.focused_block_id != block_id do
+      {:noreply, socket}
+    else
+      process_blur_block(socket, block_id, value)
+    end
+  end
+
+  defp process_blur_block(socket, block_id, value) do
+    trimmed_value = String.trim_trailing(value)
+
+    cond do
+      trimmed_value == "" ->
+        # Remove empty block from document
+        document = Document.remove_block(socket.assigns.document, block_id)
+
+        {:noreply,
+         socket
+         |> assign(:document, document)
+         |> assign(:focused_block_id, nil)
+         |> assign(:has_unsaved_changes, true)}
+
+      not Parser.empty?(value) ->
+        handle_content_blur(socket, block_id, trimmed_value)
+
+      true ->
+        {:noreply, socket}
+    end
+  end
+
+  defp handle_content_blur(socket, block_id, trimmed_value) do
+    current_source = Document.get_block_source(socket.assigns.document, block_id)
+
+    if current_source == trimmed_value do
+      # No change, just clear focus
+      {:noreply, assign(socket, :focused_block_id, nil)}
+    else
+      # Update block with trimmed content, then re-parse
+      document = Document.update_block(socket.assigns.document, block_id, trimmed_value)
+      body = Parser.to_markdown(document)
+      document = Parser.parse(body)
+
+      {:noreply,
+       socket
+       |> assign(:document, document)
+       |> assign(:focused_block_id, block_id)
+       |> assign(:has_unsaved_changes, true)}
+    end
   end
 
   defp has_upload_errors?(upload) do

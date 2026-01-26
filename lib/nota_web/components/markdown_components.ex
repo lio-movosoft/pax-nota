@@ -5,6 +5,8 @@ defmodule NotaWeb.MarkdownComponents do
   """
   use Phoenix.Component
 
+  import NotaWeb.CoreComponents, only: [icon: 1]
+
   alias Nota.Notes.Markdown.Document
   alias Document.Block
   alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink}
@@ -199,7 +201,10 @@ defmodule NotaWeb.MarkdownComponents do
   defp inline_content(%{inline: %Link{}} = assigns) do
     ~H"""
     <a data-inline-id={@inline.id} href={@inline.url} class="link link-primary">
-      <.inline_content :for={child <- @inline.children} inline={child} />
+      <.icon name="hero-arrow-right-start-on-rectangle" class="inline-block size-4 mr-0.5 align-text-bottom" /><.inline_content
+        :for={child <- @inline.children}
+        inline={child}
+      />
     </a>
     """
   end

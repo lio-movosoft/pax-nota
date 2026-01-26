@@ -1,4 +1,7 @@
 defmodule NotaWeb.Users.Index do
+  @moduledoc """
+  LiveView for listing and managing users in the admin interface.
+  """
   use NotaWeb, :live_view
 
   alias Nota.Accounts

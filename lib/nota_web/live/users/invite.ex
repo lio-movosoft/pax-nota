@@ -1,4 +1,7 @@
 defmodule NotaWeb.Users.Invite do
+  @moduledoc """
+  LiveView for inviting new users via email.
+  """
   use NotaWeb, :live_view
 
   alias Nota.Accounts

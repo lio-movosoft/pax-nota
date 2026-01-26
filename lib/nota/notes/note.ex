@@ -1,4 +1,7 @@
 defmodule Nota.Notes.Note do
+  @moduledoc """
+  Schema for user notes with title, body, and full-text search support.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
