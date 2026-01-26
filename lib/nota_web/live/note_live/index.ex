@@ -45,7 +45,7 @@ defmodule NotaWeb.NoteLive.Index do
           :let={{_id, note}}
           label={sort_label("Updated", @order_by, updated_at_desc: " ▼", updated_at_asc: " ▲")}
         >
-          <span class="text-base-content/60">
+          <span class="text-base-content/60 whitespace-nowrap">
             {Calendar.strftime(note.updated_at, "%Y-%m-%d")}
           </span>
         </:col>

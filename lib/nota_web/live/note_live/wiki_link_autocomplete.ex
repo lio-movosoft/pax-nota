@@ -90,16 +90,6 @@ defmodule NotaWeb.NoteLive.WikiLinkAutocomplete do
      |> assign(:selected_index, 0)}
   end
 
-  defp fetch_notes(scope, query) do
-    opts = [limit: 5]
-    opts = if query != "", do: Keyword.put(opts, :query, query), else: opts
-
-    scope
-    |> Notes.list_notes(opts)
-    |> Enum.reject(&is_nil(&1.title))
-    |> Enum.map(&%{id: &1.id, title: &1.title})
-  end
-
   def handle_event("input_keydown", %{"key" => "ArrowDown"}, socket) do
     max_index = length(socket.assigns.filtered_items) - 1
     new_index = min(socket.assigns.selected_index + 1, max_index)
@@ -139,5 +129,15 @@ defmodule NotaWeb.NoteLive.WikiLinkAutocomplete do
   def handle_event("close_autocomplete", _params, socket) do
     send(self(), :close_autocomplete)
     {:noreply, socket}
+  end
+
+  defp fetch_notes(scope, query) do
+    opts = [limit: 5]
+    opts = if query != "", do: Keyword.put(opts, :query, query), else: opts
+
+    scope
+    |> Notes.list_notes(opts)
+    |> Enum.reject(&is_nil(&1.title))
+    |> Enum.map(&%{id: &1.id, title: &1.title})
   end
 end

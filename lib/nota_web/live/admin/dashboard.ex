@@ -1,4 +1,7 @@
 defmodule NotaWeb.Admin.Dashboard do
+  @moduledoc """
+  LiveView for the admin dashboard showing system statistics.
+  """
   use NotaWeb, :live_view
 
   alias Nota.Accounts

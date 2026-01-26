@@ -130,8 +130,6 @@ defmodule Nota.Notes.Markdown.Document do
   def update_block(%__MODULE__{blocks: blocks} = doc, block_id, new_source) do
     alias Nota.Notes.Markdown.Parser
 
-    dbg({:update_block, block_id, new_source})
-
     blocks =
       Enum.map(blocks, fn block ->
         if block.id == block_id do
@@ -170,22 +168,18 @@ defmodule Nota.Notes.Markdown.Document do
 
     after_block_id = Keyword.get(opts, :after, nil)
 
-    blocks =
-      if is_nil(after_block_id) do
-        # simply add the new block
-        [new_block | blocks]
-      else
-        Enum.flat_map(blocks, fn block ->
-          if block.id == after_block_id do
-            [block, new_block]
-          else
-            [block]
-          end
-        end)
-      end
+    blocks = insert_new_block(blocks, new_block, after_block_id)
 
     doc = %{doc | blocks: blocks}
     {doc, new_id}
+  end
+
+  defp insert_new_block(blocks, new_block, nil), do: [new_block | blocks]
+
+  defp insert_new_block(blocks, new_block, after_block_id) do
+    Enum.flat_map(blocks, fn block ->
+      if block.id == after_block_id, do: [block, new_block], else: [block]
+    end)
   end
 
   @doc """
@@ -311,17 +305,14 @@ defmodule Nota.Notes.Markdown.Document do
   end
 
   defp find_adjacent(ids, target_id, direction) do
-    case Enum.find_index(ids, &(&1 == target_id)) do
-      nil ->
-        nil
-
-      idx ->
-        case direction do
-          :previous -> if idx > 0, do: Enum.at(ids, idx - 1)
-          :next -> Enum.at(ids, idx + 1)
-        end
-    end
+    idx = Enum.find_index(ids, &(&1 == target_id))
+    get_adjacent_at(ids, idx, direction)
   end
+
+  defp get_adjacent_at(_ids, nil, _direction), do: nil
+  defp get_adjacent_at(ids, idx, :previous) when idx > 0, do: Enum.at(ids, idx - 1)
+  defp get_adjacent_at(_ids, _idx, :previous), do: nil
+  defp get_adjacent_at(ids, idx, :next), do: Enum.at(ids, idx + 1)
 
   @doc """
   Splits a block at the given cursor position.

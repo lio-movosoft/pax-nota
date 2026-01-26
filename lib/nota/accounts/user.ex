@@ -1,4 +1,7 @@
 defmodule Nota.Accounts.User do
+  @moduledoc """
+  Schema for user accounts with authentication and permission fields.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -48,9 +48,7 @@ defmodule Nota.Notes.Markdown.Parser do
   """
   @spec to_markdown(Document.t()) :: String.t()
   def to_markdown(%Document{blocks: blocks}) do
-    blocks
-    |> Enum.map(& &1.source)
-    |> Enum.join("\n\n")
+    Enum.map_join(blocks, "\n\n", & &1.source)
   end
 
   @doc """

@@ -1,4 +1,8 @@
 defmodule NotaWeb.UserAuth do
+  @moduledoc """
+  Handles user authentication for the web application.
+  Provides plugs for session management, remember-me cookies, and route protection.
+  """
   use NotaWeb, :verified_routes
 
   import Plug.Conn

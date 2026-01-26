@@ -1,4 +1,8 @@
 defmodule Nota.Accounts.UserNotifier do
+  @moduledoc """
+  Handles email notifications for user account actions.
+  Sends magic links, email confirmations, and other transactional emails.
+  """
   import Swoosh.Email
 
   alias Nota.Mailer
@@ -120,8 +124,7 @@ defmodule Nota.Accounts.UserNotifier do
   defp frame(blocks) when is_list(blocks) do
     # dbg(blocks)
 
-    Enum.map(blocks, &render_block/1)
-    |> Enum.join("\n")
+    Enum.map_join(blocks, "\n", &render_block/1)
   end
 
   defp frame(body) when is_binary(body) do

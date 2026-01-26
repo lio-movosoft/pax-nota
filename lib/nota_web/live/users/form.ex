@@ -1,4 +1,7 @@
 defmodule NotaWeb.Users.Form do
+  @moduledoc """
+  LiveView for editing user details and permissions.
+  """
   use NotaWeb, :live_view
 
   alias Nota.Accounts

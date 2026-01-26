@@ -1,4 +1,7 @@
 defmodule Nota.Notes.NoteImage do
+  @moduledoc """
+  Schema for images attached to notes, with cover image support.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 

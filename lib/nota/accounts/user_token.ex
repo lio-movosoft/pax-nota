@@ -1,4 +1,8 @@
 defmodule Nota.Accounts.UserToken do
+  @moduledoc """
+  Schema and queries for user authentication tokens.
+  Handles session tokens, magic links, and email change confirmations.
+  """
   use Ecto.Schema
   import Ecto.Query
   alias Nota.Accounts.UserToken
