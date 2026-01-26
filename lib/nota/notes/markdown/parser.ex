@@ -14,7 +14,7 @@ defmodule Nota.Notes.Markdown.Parser do
 
   alias Nota.Notes.Markdown.{Document, Id}
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link}
+  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink}
 
   defp dom_id(index), do: "mv-#{index}"
 
@@ -269,9 +269,9 @@ defmodule Nota.Notes.Markdown.Parser do
   # Returns list of {:type, content} tuples
   defp tokenize_inlines(text) do
     # Pattern matching for inline elements
-    # Order matters: ** before *, ` is highest priority
+    # Order matters: ** before *, ` is highest priority, [[ before [
     regex =
-      ~r/(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|([^`*\[]+)/
+      ~r/(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[\[[^\]]+\]\])|(\[[^\]]+\]\([^)]+\))|([^`*\[]+)/
 
     Regex.scan(regex, text)
     |> Enum.flat_map(fn match ->
@@ -299,6 +299,12 @@ defmodule Nota.Notes.Markdown.Parser do
     # Emphasis
     content = String.trim_trailing(rest, "*")
     {:emphasis, content}
+  end
+
+  defp classify_inline("[[" <> rest) do
+    # Wiki link: [[text]]
+    content = String.trim_trailing(rest, "]]")
+    {:wiki_link, content}
   end
 
   defp classify_inline("[" <> rest) do
@@ -356,6 +362,13 @@ defmodule Nota.Notes.Markdown.Parser do
       id: id,
       url: url,
       children: [%Text{id: "#{id}:t0", text: text}]
+    }
+  end
+
+  defp token_to_inline({:wiki_link, content}, block_id, idx) do
+    %WikiLink{
+      id: Id.for_inline(:wiki_link, block_id, idx, content),
+      text: content
     }
   end
 end

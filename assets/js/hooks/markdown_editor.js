@@ -11,6 +11,7 @@
  * - Keyboard navigation: arrow keys move between blocks when at boundaries
  * - Content sync: changes are debounced and pushed to LiveView
  * - New blocks: Enter key creates a new paragraph after current block
+ * - Wiki-link autocomplete: typing [[ triggers autocomplete dropdown
  */
 
 const MarkdownEditor = {
@@ -29,6 +30,10 @@ const MarkdownEditor = {
     // null when not in the middle of a click operation.
     this.targetBlock = null;
 
+    // Autocomplete state - tracks the position of [[ trigger
+    this.autocompleteStartPos = null;
+    this.autocompleteBlockId = null;
+
     // LiveView pushes this event when a block should be focused programmatically
     // (e.g., after creating a new block with Enter, or arrow key navigation)
     this.handleEvent("focus_block", ({ block_id }) => {
@@ -39,6 +44,45 @@ const MarkdownEditor = {
     // (e.g., after merging blocks with Backspace)
     this.handleEvent("focus_block_at", ({ block_id, offset }) => {
       this.focusBlock(block_id, offset);
+    });
+
+    // LiveView pushes this event when a note link is selected from autocomplete
+    this.handleEvent("insert_note_link", ({ block_id, note_id, title, start_pos }) => {
+      const input = this.el.querySelector(
+        `[data-block-id="${block_id}"] [data-block-input]`,
+      );
+      if (!input) return;
+
+      const before = input.value.substring(0, start_pos);
+      const after = input.value.substring(input.selectionStart);
+      const linkMarkdown = `[${title}](/notes/${note_id})`;
+      const newValue = before + linkMarkdown + after;
+      const newCursorPos = start_pos + linkMarkdown.length;
+
+      input.value = newValue;
+      input.focus();
+      input.setSelectionRange(newCursorPos, newCursorPos);
+
+      this.autocompleteStartPos = null;
+      this.autocompleteBlockId = null;
+
+      this.pushEvent("block_content_changed", {
+        block_id: block_id,
+        content: newValue,
+      });
+    });
+
+    // LiveView pushes this event when autocomplete is closed without selection
+    this.handleEvent("autocomplete_closed", ({ block_id }) => {
+      this.autocompleteStartPos = null;
+      this.autocompleteBlockId = null;
+
+      const input = this.el.querySelector(
+        `[data-block-id="${block_id}"] [data-block-input]`,
+      );
+      if (input) {
+        input.focus();
+      }
     });
   },
 
@@ -150,6 +194,7 @@ const MarkdownEditor = {
   /**
    * Debounces content changes and syncs to LiveView.
    * Updates are sent 150ms after the user stops typing.
+   * Also detects [[ trigger for wiki-link autocomplete.
    */
   handleInput(event) {
     const target = event.target;
@@ -159,6 +204,26 @@ const MarkdownEditor = {
     if (!blockEl) return;
 
     const blockId = blockEl.dataset.blockId;
+    const cursorPos = target.selectionStart;
+    const textBeforeCursor = target.value.substring(0, cursorPos);
+
+    // Check for [[ trigger (must be typed, not already in text with closing ]])
+    if (
+      textBeforeCursor.endsWith("[[") &&
+      this.autocompleteStartPos === null
+    ) {
+      const rect = target.getBoundingClientRect();
+      const containerRect = this.el.parentElement.getBoundingClientRect();
+      this.autocompleteStartPos = cursorPos - 2;
+      this.autocompleteBlockId = blockId;
+
+      this.pushEvent("show_autocomplete", {
+        block_id: blockId,
+        start_pos: this.autocompleteStartPos,
+        top: rect.top - containerRect.top + 24,
+        left: rect.left - containerRect.left,
+      });
+    }
 
     clearTimeout(this.inputTimeout);
     this.inputTimeout = setTimeout(() => {

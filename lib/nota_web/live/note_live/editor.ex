@@ -13,6 +13,7 @@ defmodule NotaWeb.NoteLive.Editor do
   alias Nota.Notes
   alias Nota.Notes.Markdown.{Document, Parser}
   alias Nota.Uploads
+  alias NotaWeb.NoteLive.WikiLinkAutocomplete
 
   import NotaWeb.MarkdownComponents
 
@@ -43,10 +44,10 @@ defmodule NotaWeb.NoteLive.Editor do
           <.button navigate={~p"/notes/#{@note}/images"}>
             <.icon name="hero-photo" />
           </.button>
-          <.button :if={@dirty} variant="primary" phx-click="save">
+          <.button :if={@has_unsaved_changes} variant="primary" phx-click="save">
             <.icon name="hero-check" /> Save
           </.button>
-          <span :if={!@dirty} class="text-sm text-base-content/50">Saved</span>
+          <span :if={!@has_unsaved_changes} class="text-sm text-base-content/50">Saved</span>
         </:actions>
       </.header>
 
@@ -163,8 +164,17 @@ defmodule NotaWeb.NoteLive.Editor do
         </div>
       </.modal>
 
-      <div class="mt-6">
+      <div class="mt-6 relative">
         <.markdown_document document={@document} focused_block_id={@focused_block_id} />
+
+        <.live_component
+          :if={@show_autocomplete}
+          module={WikiLinkAutocomplete}
+          id="wiki-link-autocomplete"
+          position={@autocomplete_position}
+          block_id={@autocomplete_block_id}
+          current_scope={@current_scope}
+        />
       </div>
 
       <div class="mt-4 text-xs text-base-content/40">
@@ -193,10 +203,14 @@ defmodule NotaWeb.NoteLive.Editor do
      |> assign(:document, document)
      |> assign(:focused_block_id, nil)
      |> assign(:cursor_offset, 0)
-     |> assign(:dirty, false)
+     |> assign(:has_unsaved_changes, false)
      |> assign(:images, images)
      |> assign(:max_images, Uploads.max_images_per_note())
-     |> assign(:can_upload, can_upload)}
+     |> assign(:can_upload, can_upload)
+     |> assign(:show_autocomplete, false)
+     |> assign(:autocomplete_position, %{top: 0, left: 0})
+     |> assign(:autocomplete_block_id, nil)
+     |> assign(:autocomplete_start_pos, nil)}
   end
 
   @impl true
@@ -273,14 +287,22 @@ defmodule NotaWeb.NoteLive.Editor do
     {:noreply,
      socket
      |> assign(:document, document)
-     |> assign(:dirty, true)}
+     |> assign(:has_unsaved_changes, true)}
   end
 
   # Handle blur - unfocus block and sync content
   def handle_event("blur_block", %{"block_id" => block_id, "value" => value}, socket) do
+    # Skip blur processing if autocomplete is open (user is just interacting with autocomplete)
+    if socket.assigns.show_autocomplete do
+      {:noreply, socket}
+    else
+      handle_blur_block(socket, block_id, value)
+    end
+  end
+
+  defp handle_blur_block(socket, block_id, value) do
     # Only unfocus if we're still focused on this block
     # (keydown Enter may have already moved focus to a new block)
-    # dbg({:parsing, block_id, value})
 
     if socket.assigns.focused_block_id == block_id do
       # dbg("socket.assigns.focused_block_id == block_id")
@@ -297,7 +319,7 @@ defmodule NotaWeb.NoteLive.Editor do
            socket
            |> assign(:document, document)
            |> assign(:focused_block_id, nil)
-           |> assign(:dirty, true)}
+           |> assign(:has_unsaved_changes, true)}
 
         not Parser.empty?(value) ->
           dbg("raw value is NOT empty [#{trimmed_value}]")
@@ -310,7 +332,7 @@ defmodule NotaWeb.NoteLive.Editor do
            socket
            |> assign(:document, document)
            |> assign(:focused_block_id, block_id)
-           |> assign(:dirty, true)}
+           |> assign(:has_unsaved_changes, true)}
 
         true ->
           # dbg("trimmed_value is WIP [#{trimmed_value}]")
@@ -331,7 +353,7 @@ defmodule NotaWeb.NoteLive.Editor do
      socket
      |> assign(:document, document)
      |> assign(:focused_block_id, new_id)
-     |> assign(:dirty, true)
+     |> assign(:has_unsaved_changes, true)
      |> push_event("focus_block", %{block_id: new_id})}
   end
 
@@ -348,7 +370,7 @@ defmodule NotaWeb.NoteLive.Editor do
         {:noreply,
          socket
          |> assign(:note, note)
-         |> assign(:dirty, false)
+         |> assign(:has_unsaved_changes, false)
          |> put_flash(:info, "Saved")}
 
       {:error, _changeset} ->
@@ -372,7 +394,7 @@ defmodule NotaWeb.NoteLive.Editor do
        socket
        |> assign(:document, document)
        |> assign(:focused_block_id, new_id)
-       |> assign(:dirty, true)
+       |> assign(:has_unsaved_changes, true)
        |> push_event("focus_block", %{block_id: new_id})}
     else
       {:noreply, socket}
@@ -391,7 +413,7 @@ defmodule NotaWeb.NoteLive.Editor do
          socket
          |> assign(:document, document)
          |> assign(:focused_block_id, prev_block_id)
-         |> assign(:dirty, true)
+         |> assign(:has_unsaved_changes, true)
          |> push_event("focus_block_at", %{block_id: prev_block_id, offset: cursor_offset})}
 
       :error ->
@@ -400,13 +422,37 @@ defmodule NotaWeb.NoteLive.Editor do
     end
   end
 
+  # === Wiki-link autocomplete events
+
+  # Show autocomplete dropdown when [[ is typed
+  def handle_event(
+        "show_autocomplete",
+        %{"block_id" => block_id, "start_pos" => start_pos, "top" => top, "left" => left},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> assign(:show_autocomplete, true)
+     |> assign(:autocomplete_position, %{top: top, left: left})
+     |> assign(:autocomplete_block_id, block_id)
+     |> assign(:autocomplete_start_pos, start_pos)}
+  end
+
+  # Close autocomplete dropdown
+  def handle_event("close_autocomplete", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_autocomplete, false)
+     |> push_event("autocomplete_closed", %{block_id: socket.assigns.autocomplete_block_id})}
+  end
+
   # === TITLE events
   # Handle title updates
   def handle_event("update_title", %{"title" => title}, socket) do
     {:noreply,
      socket
      |> assign(:title, title)
-     |> assign(:dirty, true)}
+     |> assign(:has_unsaved_changes, true)}
   end
 
   # Handle title blur - trim trailing whitespace
@@ -416,7 +462,7 @@ defmodule NotaWeb.NoteLive.Editor do
     {:noreply,
      socket
      |> assign(:title, trimmed)
-     |> assign(:dirty, socket.assigns.title != trimmed or socket.assigns.dirty)}
+     |> assign(:has_unsaved_changes, socket.assigns.title != trimmed or socket.assigns.has_unsaved_changes)}
   end
 
   # === Image upload handlers
@@ -487,6 +533,30 @@ defmodule NotaWeb.NoteLive.Editor do
     else
       {:noreply, socket}
     end
+  end
+
+  # === handle_info callbacks
+
+  # Note link selected from autocomplete
+  @impl true
+  def handle_info({:note_link_selected, note_id, title, block_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_autocomplete, false)
+     |> push_event("insert_note_link", %{
+       block_id: block_id,
+       note_id: note_id,
+       title: title,
+       start_pos: socket.assigns.autocomplete_start_pos
+     })}
+  end
+
+  # Close autocomplete without selection
+  def handle_info(:close_autocomplete, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_autocomplete, false)
+     |> push_event("autocomplete_closed", %{block_id: socket.assigns.autocomplete_block_id})}
   end
 
   defp has_upload_errors?(upload) do
