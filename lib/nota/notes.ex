@@ -8,6 +8,8 @@ defmodule Nota.Notes do
 
   alias Nota.Notes.Note
   alias Nota.Notes.NoteImage
+  alias Nota.Notes.Tag
+  alias Nota.Notes.NoteTag
   alias Nota.Accounts.Scope
 
   @doc """
@@ -147,6 +149,7 @@ defmodule Nota.Notes do
            %Note{}
            |> Note.changeset(attrs, scope)
            |> Repo.insert() do
+      sync_tags(scope, note)
       broadcast_note(scope, {:created, note})
       {:ok, note}
     end
@@ -171,6 +174,7 @@ defmodule Nota.Notes do
            note
            |> Note.changeset(attrs, scope)
            |> Repo.update() do
+      sync_tags(scope, note)
       broadcast_note(scope, {:updated, note})
       {:ok, note}
     end
@@ -191,8 +195,15 @@ defmodule Nota.Notes do
   def delete_note(%Scope{} = scope, %Note{} = note) do
     true = note.user_id == scope.user.id
 
+    # Get tag IDs before deletion for orphan cleanup
+    tag_ids =
+      from(nt in NoteTag, where: nt.note_id == ^note.id, select: nt.tag_id)
+      |> Repo.all()
+
     with {:ok, note = %Note{}} <-
            Repo.delete(note) do
+      # Clean up orphaned tags after cascade delete removes notes_tags
+      if tag_ids != [], do: delete_orphaned_tags(scope.user.id, tag_ids)
       broadcast_note(scope, {:deleted, note})
       {:ok, note}
     end
@@ -211,5 +222,143 @@ defmodule Nota.Notes do
     true = note.user_id == scope.user.id
 
     Note.changeset(note, attrs, scope)
+  end
+
+  # ===== Tags =====
+
+  @doc """
+  Parses #tags from note body text.
+  Tags must start with # followed by non-whitespace characters.
+  Excludes markdown headers (## with space after).
+
+  Returns a list of unique, lowercased tag labels.
+
+  ## Examples
+
+      iex> parse_tags("Hello #world and #Elixir")
+      ["world", "elixir"]
+
+      iex> parse_tags("## Header not a tag")
+      []
+
+  """
+  def parse_tags(nil), do: []
+  def parse_tags(""), do: []
+
+  def parse_tags(body) when is_binary(body) do
+    # Match #tag but not ## header (headers have space after #)
+    # Tag: # followed by word characters (letters, numbers, underscores, hyphens)
+    ~r/(?<![#\w])#([\w-]+)/
+    |> Regex.scan(body)
+    |> Enum.map(fn [_, tag] -> String.downcase(tag) end)
+    |> Enum.uniq()
+  end
+
+  @doc """
+  Returns tags for a note, preloaded.
+  """
+  def list_tags_for_note(%Note{} = note) do
+    note
+    |> Repo.preload(:tags)
+    |> Map.get(:tags, [])
+  end
+
+  @doc """
+  Syncs tags for a note based on the note body.
+  - Parses #tags from body
+  - Creates new tags if they don't exist for this user
+  - Adds note-tag associations for new tags
+  - Removes note-tag associations for tags no longer in body
+  - Deletes orphaned tags (tags with no remaining note associations)
+
+  Designed to minimize DB queries:
+  1. One query to get existing tags for user
+  2. One bulk insert for new tags
+  3. One query to get current note-tag associations
+  4. One bulk insert for new associations
+  5. One bulk delete for removed associations
+  6. One delete for orphaned tags
+  """
+  def sync_tags(%Scope{} = scope, %Note{} = note) do
+    user_id = scope.user.id
+    parsed_labels = parse_tags(note.body)
+
+    # Get all user's existing tags that match parsed labels
+    existing_tags =
+      from(t in Tag, where: t.user_id == ^user_id and t.label in ^parsed_labels)
+      |> Repo.all()
+
+    existing_labels = Enum.map(existing_tags, & &1.label)
+
+    # Create missing tags
+    new_labels = parsed_labels -- existing_labels
+
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    new_tags =
+      if new_labels != [] do
+        entries =
+          Enum.map(new_labels, &%{label: &1, user_id: user_id, inserted_at: now})
+
+        {_, inserted} =
+          Repo.insert_all(Tag, entries,
+            on_conflict: :nothing,
+            returning: true
+          )
+
+        inserted
+      else
+        []
+      end
+
+    all_tags = existing_tags ++ new_tags
+    tag_ids_by_label = Map.new(all_tags, &{&1.label, &1.id})
+    desired_tag_ids = MapSet.new(parsed_labels, &Map.get(tag_ids_by_label, &1))
+
+    # Get current note-tag associations
+    current_associations =
+      from(nt in NoteTag, where: nt.note_id == ^note.id, select: nt.tag_id)
+      |> Repo.all()
+      |> MapSet.new()
+
+    # Add new associations
+    to_add = MapSet.difference(desired_tag_ids, current_associations) |> MapSet.to_list()
+
+    if to_add != [] do
+      entries = Enum.map(to_add, &%{note_id: note.id, tag_id: &1})
+      Repo.insert_all(NoteTag, entries, on_conflict: :nothing)
+    end
+
+    # Remove old associations
+    to_remove = MapSet.difference(current_associations, desired_tag_ids) |> MapSet.to_list()
+
+    if to_remove != [] do
+      from(nt in NoteTag, where: nt.note_id == ^note.id and nt.tag_id in ^to_remove)
+      |> Repo.delete_all()
+
+      # Delete orphaned tags (tags that no longer have any notes)
+      delete_orphaned_tags(user_id, to_remove)
+    end
+
+    :ok
+  end
+
+  defp delete_orphaned_tags(user_id, tag_ids) do
+    # Find tags that have no remaining note associations
+    orphaned =
+      from(t in Tag,
+        where: t.user_id == ^user_id and t.id in ^tag_ids,
+        left_join: nt in NoteTag,
+        on: nt.tag_id == t.id,
+        group_by: t.id,
+        having: count(nt.tag_id) == 0,
+        select: t.id
+      )
+      |> Repo.all()
+
+    if orphaned != [] do
+      from(t in Tag, where: t.id in ^orphaned)
+      |> Repo.delete_all()
+    end
   end
 end
