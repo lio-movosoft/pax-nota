@@ -69,7 +69,14 @@ defmodule Nota.Notes.Markdown.Document do
     @type t :: %__MODULE__{id: String.t(), text: String.t()}
   end
 
-  @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t()
+  defmodule Tag do
+    @moduledoc "Tag inline element (#tag)"
+    @enforce_keys [:id, :label]
+    defstruct [:id, :label]
+    @type t :: %__MODULE__{id: String.t(), label: String.t()}
+  end
+
+  @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t() | Tag.t()
 
   # Unified block type
 

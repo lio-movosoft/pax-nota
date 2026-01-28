@@ -14,7 +14,7 @@ defmodule Nota.Notes.Markdown.Parser do
 
   alias Nota.Notes.Markdown.{Document, Id}
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink}
+  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag}
 
   defp dom_id(index), do: "mv-#{index}"
 
@@ -150,110 +150,6 @@ defmodule Nota.Notes.Markdown.Parser do
     end
   end
 
-  # defp parse_block({block_text, index}) do
-  #   # dbg({:parse_block, block_text, index})
-
-  #   cond do
-  #     heading?(block_text) -> parse_heading(block_text, index)
-  #     code_block?(block_text) -> parse_code_block(block_text, index)
-  #     list_item?(block_text) -> parse_list_items(block_text, index)
-  #     true -> parse_paragraph(block_text, index)
-  #   end
-  # end
-
-  # defp heading?(text), do: String.match?(text, ~r/^\#{1,3}\s/)
-  # defp code_block?(text), do: String.match?(text, ~r/^```/)
-  # defp list_item?(text), do: String.match?(text, ~r/^[-*+]\s/)
-
-  # defp parse_heading(text, index) do
-  #   case Regex.run(~r/^(\#{1,3})\s+(.*)$/s, text, capture: :all_but_first) do
-  #     [hashes, content] ->
-  #       level = String.length(hashes)
-  #       id = Id.for_block(:"heading_#{level}", index, text)
-
-  #       %Heading{
-  #         id: id,
-  #         level: level,
-  #         inlines: parse_inlines(String.trim(content), id),
-  #         source: text
-  #       }
-
-  #     nil ->
-  #       parse_paragraph(text, index)
-  #   end
-  # end
-
-  # defp parse_paragraph(text, index) do
-  #   id = Id.for_block(:paragraph, index, text)
-
-  #   %Paragraph{
-  #     id: id,
-  #     inlines: parse_inlines(text, id),
-  #     source: text
-  #   }
-  # end
-
-  # defp parse_code_block(text, index) do
-  #   case Regex.run(~r/^```(\w*)\n?([\s\S]*?)\n?```$/s, text, capture: :all_but_first) do
-  #     [lang, content] ->
-  #       id = Id.for_block(:code_block, index, text)
-
-  #       %CodeBlock{
-  #         id: id,
-  #         language: if(lang == "", do: nil, else: lang),
-  #         text: content,
-  #         source: text
-  #       }
-
-  #     nil ->
-  #       # Malformed code block, treat as paragraph
-  #       parse_paragraph(text, index)
-  #   end
-  # end
-
-  # Parse list items - returns a LIST of blocks (one per item)
-  # Falls back to paragraph if no valid list items found
-  # defp parse_list_items(text, start_index) do
-  #   items = split_list_items(text)
-
-  #   case items do
-  #     [] ->
-  #       # Empty list marker like "- " - treat as paragraph
-  #       parse_paragraph(text, start_index)
-
-  #     _ ->
-  #       Enum.with_index(items)
-  #       |> Enum.map(fn {item_text, item_idx} ->
-  #         id = Id.for_block(:list_item, start_index + item_idx, item_text)
-  #         content = strip_list_marker(item_text)
-
-  #         %ListItem{
-  #           id: id,
-  #           inlines: parse_inlines(content, id),
-  #           source: item_text
-  #         }
-  #       end)
-  #   end
-  # end
-
-  # defp split_list_items(text) do
-  #   # Split by newline followed by list marker
-  #   text
-  #   |> String.split(~r/\n(?=[-*+]\s)/)
-  #   |> Enum.map(&String.trim/1)
-  #   |> Enum.reject(&(&1 == ""))
-  #   |> Enum.reject(&is_empty_list_item?/1)
-  # end
-
-  # # A list item is "empty" if it's just the marker with no content
-  # defp is_empty_list_item?(text) do
-  #   String.match?(text, ~r/^[-*+]\s*$/)
-  # end
-
-  # defp strip_list_marker(text) do
-  #   String.replace(text, ~r/^[-*+]\s+/, "")
-  # end
-
   # Private: Inline parsing
 
   defp parse_inlines(text, block_id) do
@@ -272,13 +168,15 @@ defmodule Nota.Notes.Markdown.Parser do
       ~r/(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[\[[^\]]+\]\])|(\[[^\]]+\]\([^)]+\))|([^`*\[]+)/
 
     Regex.scan(regex, text)
-    |> Enum.flat_map(fn match ->
-      # match is a list where index 0 is full match, rest are capture groups
-      case match do
-        [full | _groups] -> [classify_inline(full)]
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.flat_map(&classify_match/1)
+  end
+
+  defp classify_match([full | _groups]) do
+    case classify_inline(full) do
+      nil -> []
+      list when is_list(list) -> list
+      token -> [token]
+    end
   end
 
   defp classify_inline("`" <> rest) do
@@ -314,10 +212,36 @@ defmodule Nota.Notes.Markdown.Parser do
   end
 
   defp classify_inline(text) when is_binary(text) and text != "" do
-    {:text, text}
+    # Check if text contains tags - if so, split it
+    extract_tags_from_text(text)
   end
 
   defp classify_inline(_), do: nil
+
+  # Extract #tags from plain text, returning a list of tokens
+  # e.g., "hello #world foo" -> [{:text, "hello "}, {:tag, "world"}, {:text, " foo"}]
+  defp extract_tags_from_text(text) do
+    # Match #tag but not ## (markdown headers have space after)
+    # Tag: # followed by word characters (letters, numbers, underscores, hyphens)
+    case Regex.split(~r/(?<![#\w])#([\w-]+)/, text, include_captures: true, trim: true) do
+      [^text] -> {:text, text}
+      parts -> parts_to_tokens(parts)
+    end
+  end
+
+  defp parts_to_tokens(parts) do
+    parts
+    |> Enum.map(&part_to_token/1)
+    |> Enum.reject(&match?({:text, ""}, &1))
+  end
+
+  defp part_to_token(part) do
+    if String.match?(part, ~r/^#[\w-]+$/) do
+      {:tag, String.slice(part, 1..-1//1)}
+    else
+      {:text, part}
+    end
+  end
 
   defp token_to_inline({:text, content}, block_id, idx) do
     %Text{
@@ -367,6 +291,13 @@ defmodule Nota.Notes.Markdown.Parser do
     %WikiLink{
       id: Id.for_inline(:wiki_link, block_id, idx, content),
       text: content
+    }
+  end
+
+  defp token_to_inline({:tag, label}, block_id, idx) do
+    %Tag{
+      id: Id.for_inline(:tag, block_id, idx, label),
+      label: label
     }
   end
 end

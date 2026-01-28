@@ -9,7 +9,7 @@ defmodule NotaWeb.MarkdownComponents do
 
   alias Nota.Notes.Markdown.Document
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink}
+  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag}
 
   @doc """
   Renders a markdown document with optional focus state.
@@ -214,6 +214,12 @@ defmodule NotaWeb.MarkdownComponents do
     <span data-inline-id={@inline.id} class="underline decoration-dotted cursor-pointer">
       {@inline.text}
     </span>
+    """
+  end
+
+  defp inline_content(%{inline: %Tag{}} = assigns) do
+    ~H"""
+    <span data-inline-id={@inline.id} class="badge badge-soft align-baseline">#{@inline.label}</span>
     """
   end
 end

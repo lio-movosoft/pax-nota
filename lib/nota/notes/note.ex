@@ -5,12 +5,16 @@ defmodule Nota.Notes.Note do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Nota.Notes.{Tag, NoteTag}
+
   schema "notes" do
     field :title, :string
     field :body, :string
     field :user_id, :id
 
     field :cover_image_key, :string, virtual: true
+
+    many_to_many :tags, Tag, join_through: NoteTag
 
     timestamps(type: :utc_datetime)
   end
