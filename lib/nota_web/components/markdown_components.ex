@@ -9,7 +9,7 @@ defmodule NotaWeb.MarkdownComponents do
 
   alias Nota.Notes.Markdown.Document
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag}
+  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag, CodeBlock}
 
   @doc """
   Renders a markdown document with optional focus state.
@@ -158,6 +158,16 @@ defmodule NotaWeb.MarkdownComponents do
     """
   end
 
+  def markdown_block(%{block: %CodeBlock{}} = assigns) do
+    ~H"""
+    <pre
+      id={"block-#{@block.id}"}
+      data-block-id={@block.id}
+      class="markdown-block bg-base-300 p-3 rounded"
+    ><code>{@block.content}</code></pre>
+    """
+  end
+
   # Inline content rendering
 
   attr :inline, :map, required: true
@@ -201,7 +211,10 @@ defmodule NotaWeb.MarkdownComponents do
   defp inline_content(%{inline: %Link{}} = assigns) do
     ~H"""
     <a data-inline-id={@inline.id} href={@inline.url} class="link link-primary">
-      <.icon name="hero-arrow-right-start-on-rectangle" class="inline-block size-4 mr-0.5 align-text-bottom" /><.inline_content
+      <.icon
+        name="hero-arrow-right-start-on-rectangle"
+        class="inline-block size-4 mr-0.5 align-text-bottom"
+      /><.inline_content
         :for={child <- @inline.children}
         inline={child}
       />

@@ -149,6 +149,11 @@ h3.markdown-block {
   @apply bg-base-200 rounded p-4 overflow-x-auto font-mono text-sm;
 }
 
+/* Fenced code blocks */
+pre.markdown-block {
+  @apply bg-base-300 p-3 rounded font-mono text-sm overflow-x-auto whitespace-pre;
+}
+
 /* List styling */
 .markdown-list {
   @apply pl-6 list-disc marker:text-current/40;
