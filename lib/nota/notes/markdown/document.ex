@@ -78,6 +78,15 @@ defmodule Nota.Notes.Markdown.Document do
 
   @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t() | Tag.t()
 
+  # Block-level code block (fenced with ```)
+
+  defmodule CodeBlock do
+    @moduledoc "Fenced code block (```code```)"
+    @enforce_keys [:id, :content, :source]
+    defstruct [:id, :content, :source]
+    @type t :: %__MODULE__{id: String.t(), content: String.t(), source: String.t()}
+  end
+
   # Unified block type
 
   defmodule Block do
@@ -102,7 +111,7 @@ defmodule Nota.Notes.Markdown.Document do
           }
   end
 
-  @type block :: Block.t()
+  @type block :: Block.t() | CodeBlock.t()
 
   # Document container
 

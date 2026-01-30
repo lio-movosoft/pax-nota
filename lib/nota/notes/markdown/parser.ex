@@ -14,7 +14,7 @@ defmodule Nota.Notes.Markdown.Parser do
 
   alias Nota.Notes.Markdown.{Document, Id}
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag}
+  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag, CodeBlock}
 
   defp dom_id(index), do: "mv-#{index}"
 
@@ -128,6 +128,12 @@ defmodule Nota.Notes.Markdown.Parser do
   def empty?(_), do: false
 
   # Private: Parse a single block (may return list for list items)
+  defp parse_block("```" <> _ = text, id) do
+    # Fenced code block - extract content between ``` markers
+    content = extract_code_block_content(text)
+    %CodeBlock{id: id, content: content, source: text}
+  end
+
   defp parse_block("# " <> content = text, id),
     do: %Block{id: id, type: :h1, inlines: parse_inlines(String.trim(content), id), source: text}
 
@@ -148,6 +154,15 @@ defmodule Nota.Notes.Markdown.Parser do
       nil ->
         %Block{id: id, type: :p, inlines: parse_inlines(text, id), source: text}
     end
+  end
+
+  # Extract content from fenced code block, stripping ``` markers and optional language identifier
+  defp extract_code_block_content(text) do
+    text
+    # Remove opening ``` and any language identifier on the first line
+    |> String.replace(~r/^```[^\n]*\n?/, "")
+    # Remove closing ```
+    |> String.replace(~r/\n?```$/, "")
   end
 
   # Private: Inline parsing
