@@ -54,19 +54,6 @@ defmodule NotaWeb.NoteLive.Index do
             {note.title || "Untitled"}
           </.link>
         </:col>
-        <:action :let={{_id, note}}>
-          <.link navigate={~p"/notes/#{note}"}>
-            Edit
-          </.link>
-        </:action>
-        <:action :let={{id, note}}>
-          <.link
-            phx-click={JS.push("delete", value: %{id: note.id}) |> hide("##{id}")}
-            data-confirm="Are you sure?"
-          >
-            Delete
-          </.link>
-        </:action>
       </.table>
     </Layouts.app>
     """
@@ -141,13 +128,6 @@ defmodule NotaWeb.NoteLive.Index do
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to create note")}
     end
-  end
-
-  def handle_event("delete", %{"id" => id}, socket) do
-    note = Notes.get_note!(socket.assigns.current_scope, id)
-    {:ok, _} = Notes.delete_note(socket.assigns.current_scope, note)
-
-    {:noreply, stream_delete(socket, :notes, note)}
   end
 
   @impl true

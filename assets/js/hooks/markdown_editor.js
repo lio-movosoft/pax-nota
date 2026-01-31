@@ -20,11 +20,19 @@ const MarkdownEditor = {
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseUp = this.handleMouseUp.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleDragEnter = this.handleDragEnter.bind(this);
+    this.handleDragOver = this.handleDragOver.bind(this);
+    this.handleDragLeave = this.handleDragLeave.bind(this);
+    this.handleDrop = this.handleDrop.bind(this);
 
     this.el.addEventListener("input", this.handleInput);
     this.el.addEventListener("mousedown", this.handleMouseDown);
     this.el.addEventListener("mouseup", this.handleMouseUp);
     this.el.addEventListener("keydown", this.handleKeydown);
+    this.el.addEventListener("dragenter", this.handleDragEnter);
+    this.el.addEventListener("dragover", this.handleDragOver);
+    this.el.addEventListener("dragleave", this.handleDragLeave);
+    this.el.addEventListener("drop", this.handleDrop);
 
     // The block being targeted for focus (captured on mousedown, used on mouseup).
     // null when not in the middle of a click operation.
@@ -33,6 +41,9 @@ const MarkdownEditor = {
     // Autocomplete state - tracks the position of [[ trigger
     this.autocompleteStartPos = null;
     this.autocompleteBlockId = null;
+
+    // Drag/drop state
+    this.lastDropTarget = null;
 
     // LiveView pushes this event when a block should be focused programmatically
     // (e.g., after creating a new block with Enter, or arrow key navigation)
@@ -91,6 +102,10 @@ const MarkdownEditor = {
     this.el.removeEventListener("mousedown", this.handleMouseDown);
     this.el.removeEventListener("mouseup", this.handleMouseUp);
     this.el.removeEventListener("keydown", this.handleKeydown);
+    this.el.removeEventListener("dragenter", this.handleDragEnter);
+    this.el.removeEventListener("dragover", this.handleDragOver);
+    this.el.removeEventListener("dragleave", this.handleDragLeave);
+    this.el.removeEventListener("drop", this.handleDrop);
   },
 
   /**
@@ -123,7 +138,15 @@ const MarkdownEditor = {
 
     const blockEl = this.targetBlock;
     const blockId = blockEl.dataset.blockId;
+    const blockType = blockEl.dataset.blockType;
     this.targetBlock = null;
+
+    // Image blocks: just select them (they're not editable as text)
+    if (blockType === "image") {
+      this.pushEvent("block_selected", { block_id: blockId, offset: 0 });
+      blockEl.focus(); // Make it focusable for keyboard events
+      return;
+    }
 
     // Calculate where in the text the user clicked
     const offset = this.getClickOffset(blockEl);
@@ -239,9 +262,29 @@ const MarkdownEditor = {
    * - Enter (without Shift): Create new paragraph after current block
    * - ArrowUp at first line: Navigate to previous block
    * - ArrowDown at last line: Navigate to next block
+   * - Backspace on image block: Delete the block
    */
   handleKeydown(event) {
     const target = event.target;
+
+    // Handle image block deletion with Backspace or Delete
+    const imageBlock = target.closest('[data-block-type="image"]');
+    if (imageBlock && (event.key === "Backspace" || event.key === "Delete")) {
+      event.preventDefault();
+      this.pushEvent("delete_block", { block_id: imageBlock.dataset.blockId });
+      return;
+    }
+
+    // Handle arrow navigation on image blocks
+    if (imageBlock && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+      this.pushEvent("navigate_block", {
+        block_id: imageBlock.dataset.blockId,
+        direction: event.key === "ArrowUp" ? "up" : "down",
+      });
+      return;
+    }
+
     if (!target.hasAttribute("data-block-input")) return;
 
     const blockEl = target.closest("[data-block-id]");
@@ -315,6 +358,92 @@ const MarkdownEditor = {
       });
       return;
     }
+  },
+
+  // === Drag/Drop Handlers ===
+
+  hasImageFiles(event) {
+    if (!event.dataTransfer?.types?.includes("Files")) return false;
+    const items = Array.from(event.dataTransfer.items || []);
+    return items.some((item) => item.type.startsWith("image/"));
+  },
+
+  handleDragEnter(event) {
+    if (!this.hasImageFiles(event)) return;
+    event.preventDefault();
+    this.el.classList.add("drag-active");
+  },
+
+  handleDragOver(event) {
+    if (!this.hasImageFiles(event)) return;
+    event.preventDefault();
+
+    // Find which block we're hovering over
+    const blockEl = event.target.closest("[data-block-id]");
+    const targetBlockId = blockEl ? blockEl.dataset.blockId : null;
+
+    // Only update if target changed (to avoid excessive events)
+    if (targetBlockId !== this.lastDropTarget) {
+      this.lastDropTarget = targetBlockId;
+      this.updateDropIndicator(blockEl);
+      this.pushEvent("drop_image_start", { target_block_id: targetBlockId });
+    }
+  },
+
+  handleDragLeave(event) {
+    // Only handle if leaving the editor entirely
+    if (this.el.contains(event.relatedTarget)) return;
+
+    this.el.classList.remove("drag-active");
+    this.removeDropIndicator();
+    this.lastDropTarget = null;
+    this.pushEvent("drop_image_cancel", {});
+  },
+
+  handleDrop(event) {
+    if (!this.hasImageFiles(event)) return;
+    event.preventDefault();
+
+    this.el.classList.remove("drag-active");
+    this.removeDropIndicator();
+    this.lastDropTarget = null;
+
+    const files = Array.from(event.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+
+    if (files.length === 0) return;
+
+    // Use LiveView's upload mechanism via the hidden input
+    // Find input by name since live_file_input generates dynamic IDs
+    const form = document.getElementById("drop-upload-form");
+    const uploadInput = form?.querySelector('input[name="drop_image"]');
+
+    if (uploadInput) {
+      const dt = new DataTransfer();
+      dt.items.add(files[0]); // Only take first image
+      uploadInput.files = dt.files;
+      // Dispatch change event - auto_upload: true handles the rest
+      uploadInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  },
+
+  updateDropIndicator(blockEl) {
+    this.removeDropIndicator();
+
+    const indicator = document.createElement("div");
+    indicator.className = "drop-indicator";
+    indicator.id = "drop-indicator";
+
+    if (blockEl) {
+      blockEl.after(indicator);
+    } else {
+      this.el.prepend(indicator);
+    }
+  },
+
+  removeDropIndicator() {
+    document.getElementById("drop-indicator")?.remove();
   },
 
   /**

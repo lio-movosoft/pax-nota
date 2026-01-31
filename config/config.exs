@@ -75,13 +75,17 @@ config :phoenix, :json_library, Jason
 
 # MinIO/S3 configuration for recipe images
 config :nota, :s3,
-  bucket: "recipe-images",
+  bucket: "nota-media",
   region: "us-east-1",
   host: "localhost",
   port: 9099,
   scheme: "http://",
   access_key_id: "root",
   secret_access_key: "root421-"
+
+# Configure ExAws to use Req instead of hackney
+config :ex_aws,
+  http_client: ExAws.Request.Req
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

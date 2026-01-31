@@ -2,19 +2,34 @@ defmodule Nota.Notes.Markdown.Parser do
   @moduledoc """
   Thin markdown parser supporting a focused subset of CommonMark.
 
-  Supported elements:
-  - Block: Headings (h1-h3), Paragraphs, Code blocks (fenced), List items (ul only)
-  - Inline: Emphasis (*), Strong (**), Code (`), Links [text](url)
+  ## Supported Elements
 
-  Design goals:
+  ### Block-level
+  - Headings (h1-h3): `# `, `## `, `### `
+  - Paragraphs: plain text
+  - Code blocks (fenced): ``` code ```
+  - List items: `- ` (unordered), `1. ` (ordered)
+  - Images: `![alt](image_key)`
+
+  ### Inline
+  - Emphasis: `*italic*`
+  - Strong: `**bold**`
+  - Code: `` `code` ``
+  - Links: `[text](url)`
+  - Wiki links: `[[page name]]`
+  - Tags: `#hashtag`
+
+  ## Design Goals
   - No external dependencies (no earmark)
-  - Preserve source for block reconstruction
-  - Generate stable IDs via Nota.Notes.Markdown.Id
+  - Preserve source for block reconstruction (round-trip support)
+  - Generate stable IDs via `Nota.Notes.Markdown.Id`
   """
 
-  alias Nota.Notes.Markdown.{Document, Id}
+  alias Nota.Notes.Markdown.Document
+  alias Nota.Notes.Markdown.Id
+
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag, CodeBlock}
+  alias Document.{Code, CodeBlock, Emphasis, ImageBlock, Link, Strong, Tag, Text, WikiLink}
 
   defp dom_id(index), do: "mv-#{index}"
 
@@ -117,15 +132,15 @@ defmodule Nota.Notes.Markdown.Parser do
     end)
   end
 
-  def empty?("# "), do: true
-  def empty?("## "), do: true
-  def empty?("### "), do: true
-  def empty?("- "), do: true
-  def empty?("1. "), do: true
-  def empty?("2. "), do: true
-  def empty?("3. "), do: true
-  def empty?(""), do: true
-  def empty?(_), do: false
+  def empty_content?("# "), do: true
+  def empty_content?("## "), do: true
+  def empty_content?("### "), do: true
+  def empty_content?("- "), do: true
+  def empty_content?("1. "), do: true
+  def empty_content?("2. "), do: true
+  def empty_content?("3. "), do: true
+  def empty_content?(""), do: true
+  def empty_content?(_), do: false
 
   # Private: Parse a single block (may return list for list items)
   defp parse_block("```" <> _ = text, id) do
@@ -145,6 +160,23 @@ defmodule Nota.Notes.Markdown.Parser do
 
   defp parse_block("- " <> content = text, id),
     do: %Block{id: id, type: :li, inlines: parse_inlines(content, id), source: text}
+
+  defp parse_block("![" <> _ = text, id) do
+    # Image block: ![alt](image_key)
+    case Regex.run(~r/^!\[([^\]]*)\]\(([^)]+)\)$/, text, capture: :all_but_first) do
+      [alt_text, image_key] ->
+        %ImageBlock{
+          id: id,
+          image_key: image_key,
+          alt_text: if(alt_text == "", do: nil, else: alt_text),
+          source: text
+        }
+
+      nil ->
+        # Malformed image syntax, treat as paragraph
+        %Block{id: id, type: :p, inlines: parse_inlines(text, id), source: text}
+    end
+  end
 
   defp parse_block(text, id) do
     case Regex.run(~r/^(\d+)\.\s+(.*)$/s, text, capture: :all_but_first) do

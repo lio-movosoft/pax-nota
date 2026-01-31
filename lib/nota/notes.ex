@@ -4,13 +4,13 @@ defmodule Nota.Notes do
   """
 
   import Ecto.Query, warn: false
-  alias Nota.Repo
 
-  alias Nota.Notes.Note
-  alias Nota.Notes.NoteImage
-  alias Nota.Notes.Tag
-  alias Nota.Notes.NoteTag
   alias Nota.Accounts.Scope
+  alias Nota.Notes.Note
+  alias Nota.Notes.NoteTag
+  alias Nota.Notes.Tag
+  alias Nota.Repo
+  alias Nota.Uploads
 
   @doc """
   Subscribes to scoped notifications about any note changes.
@@ -54,8 +54,6 @@ defmodule Nota.Notes do
 
     Note
     |> where(user_id: ^scope.user.id)
-    |> join(:left, [n], i in NoteImage, on: i.note_id == n.id and i.is_cover == true)
-    |> select_merge([n, i], %{cover_image_key: i.image_key})
     |> maybe_search(query, order_by)
     |> maybe_limit(limit)
     |> Repo.all()
@@ -175,6 +173,7 @@ defmodule Nota.Notes do
            |> Note.changeset(attrs, scope)
            |> Repo.update() do
       sync_tags(scope, note)
+      Uploads.sync_images_for_note(note.id, note.body)
       broadcast_note(scope, {:updated, note})
       {:ok, note}
     end
@@ -199,6 +198,9 @@ defmodule Nota.Notes do
     tag_ids =
       from(nt in NoteTag, where: nt.note_id == ^note.id, select: nt.tag_id)
       |> Repo.all()
+
+    # Delete all images for this note (S3 + DB) before deleting the note
+    Uploads.delete_all_images_for_note(note.id)
 
     with {:ok, note = %Note{}} <-
            Repo.delete(note) do

@@ -56,7 +56,6 @@ defmodule NotaWeb.Router do
 
       live "/notes", NoteLive.Index, :index
       live "/notes/:id", NoteLive.Editor, :edit
-      live "/notes/:id/images", NoteLive.Editor, :images
     end
 
     post "/users/update-password", UserSessionController, :update_password

@@ -36,23 +36,16 @@ defmodule NotaWeb.NoteLiveTest do
       assert html =~ "Hello Note"
     end
 
-    test "navigates to editor from listing", %{conn: conn, note: note} do
+    test "navigates to editor by clicking note title", %{conn: conn, note: note} do
       {:ok, index_live, _html} = live(conn, ~p"/notes")
 
       assert {:ok, _editor_live, html} =
                index_live
-               |> element("#notes-#{note.id} a", "Edit")
+               |> element("#notes-#{note.id} a", note.title)
                |> render_click()
                |> follow_redirect(conn, ~p"/notes/#{note}")
 
       assert html =~ note.title
-    end
-
-    test "deletes note in listing", %{conn: conn, note: note} do
-      {:ok, index_live, _html} = live(conn, ~p"/notes")
-
-      assert index_live |> element("#notes-#{note.id} a", "Delete") |> render_click()
-      refute has_element?(index_live, "#notes-#{note.id}")
     end
   end
 
@@ -70,7 +63,7 @@ defmodule NotaWeb.NoteLiveTest do
 
       # Update the title
       editor_live
-      |> form("form", %{title: "Updated Title"})
+      |> form("#title-form", %{title: "Updated Title"})
       |> render_change()
 
       # Should show Save button (dirty state)
@@ -82,7 +75,7 @@ defmodule NotaWeb.NoteLiveTest do
 
       # Update title to make it dirty
       editor_live
-      |> form("form", %{title: "Updated Title"})
+      |> form("#title-form", %{title: "Updated Title"})
       |> render_change()
 
       # Click save
@@ -94,17 +87,18 @@ defmodule NotaWeb.NoteLiveTest do
       assert html =~ "Saved"
     end
 
-    test "opens images modal", %{conn: conn, note: note} do
+    test "deletes note from editor", %{conn: conn, note: note} do
       {:ok, editor_live, _html} = live(conn, ~p"/notes/#{note}")
 
-      # Navigate to images
-      assert {:ok, _editor_live, html} =
+      # Click delete in dropdown menu
+      assert {:ok, _index_live, html} =
                editor_live
-               |> element("a[href=\"/notes/#{note.id}/images\"]")
+               |> element("a", "Delete Note")
                |> render_click()
-               |> follow_redirect(conn, ~p"/notes/#{note}/images")
+               |> follow_redirect(conn, ~p"/notes")
 
-      assert html =~ "Images"
+      assert html =~ "Note deleted"
+      refute html =~ note.title
     end
   end
 end

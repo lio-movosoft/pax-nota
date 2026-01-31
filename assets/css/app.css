@@ -166,3 +166,31 @@ pre.markdown-block {
 .markdown-list-item {
   @apply my-0 py-0.5;
 }
+
+/* Image blocks */
+.markdown-image {
+  @apply my-4;
+}
+
+.markdown-image img {
+  @apply max-w-full rounded-lg;
+}
+
+.markdown-image:focus {
+  @apply outline-2 outline-primary outline-offset-2;
+}
+
+/* Drag/drop styles */
+.markdown-editor.drag-active {
+  @apply outline-2 outline-dashed outline-primary outline-offset-4;
+}
+
+.drop-indicator {
+  @apply h-1 bg-primary rounded my-2;
+  animation: pulse-opacity 1s infinite;
+}
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
