@@ -1,6 +1,6 @@
 defmodule Nota.Notes.NoteImage do
   @moduledoc """
-  Schema for images attached to notes, with cover image support.
+  Schema for images attached to notes.
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -9,7 +9,6 @@ defmodule Nota.Notes.NoteImage do
 
   schema "note_images" do
     field :image_key, :string
-    field :is_cover, :boolean, default: false
 
     belongs_to :note, Note
 
@@ -18,7 +17,7 @@ defmodule Nota.Notes.NoteImage do
 
   def changeset(note_image, attrs) do
     note_image
-    |> cast(attrs, [:image_key, :is_cover, :note_id])
+    |> cast(attrs, [:image_key, :note_id])
     |> validate_required([:image_key, :note_id])
   end
 end

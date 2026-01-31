@@ -22,7 +22,7 @@ defmodule NotaWeb.NoteLive.Editor do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <.header>
-        <form phx-change="update_title" phx-submit="update_title" class="flex-1">
+        <form id="title-form" phx-change="update_title" phx-submit="update_title" class="flex-1">
           <textarea
             name="title"
             phx-debounce="300"
@@ -41,128 +41,27 @@ defmodule NotaWeb.NoteLive.Editor do
           <.button navigate={~p"/notes"}>
             <.icon name="hero-arrow-left" />
           </.button>
-          <.button navigate={~p"/notes/#{@note}/images"}>
-            <.icon name="hero-photo" />
-          </.button>
           <.button :if={@has_unsaved_changes} variant="primary" phx-click="save">
             <.icon name="hero-check" /> Save
           </.button>
           <span :if={!@has_unsaved_changes} class="text-sm text-base-content/50">Saved</span>
+          <div class="dropdown dropdown-end">
+            <.button tabindex="0">
+              <.icon name="hero-ellipsis-vertical" />
+            </.button>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow-sm"
+            >
+              <li>
+                <a phx-click="delete" data-confirm="Are you sure you want to delete this note?">
+                  <.icon name="hero-trash" class="text-error" /> Delete Note
+                </a>
+              </li>
+            </ul>
+          </div>
         </:actions>
       </.header>
-
-      <.modal
-        :if={@live_action == :images}
-        id="images-modal"
-        show
-        on_cancel={JS.patch(~p"/notes/#{@note}")}
-      >
-        <.header>
-          Images
-          <:subtitle>Upload up to {@max_images} images. Select one as cover.</:subtitle>
-        </.header>
-
-        <div class="mt-6 space-y-6">
-          <div :if={@can_upload} class="card bg-base-200 p-6">
-            <h3 class="font-semibold mb-4">Upload New Image</h3>
-            <form
-              id="upload-form"
-              phx-submit="upload_save"
-              phx-change="upload_validate"
-              class="space-y-4"
-            >
-              <div class="flex flex-col gap-4">
-                <.live_file_input
-                  upload={@uploads.image}
-                  class="file-input file-input-bordered w-full"
-                />
-
-                <div :for={entry <- @uploads.image.entries} class="flex items-center gap-4">
-                  <.live_img_preview entry={entry} class="w-24 h-24 object-cover rounded" />
-                  <div class="flex-1">
-                    <div class="text-sm font-medium">{entry.client_name}</div>
-                    <progress
-                      class="progress progress-primary w-full"
-                      value={entry.progress}
-                      max="100"
-                    >
-                      {entry.progress}%
-                    </progress>
-                    <div :for={err <- upload_errors(@uploads.image, entry)} class="text-error text-sm">
-                      {error_to_string(err)}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    phx-click="cancel-upload"
-                    phx-value-ref={entry.ref}
-                    class="btn btn-ghost btn-sm"
-                  >
-                    <.icon name="hero-x-mark" class="size-4" />
-                  </button>
-                </div>
-
-                <div :for={err <- upload_errors(@uploads.image)} class="text-error text-sm">
-                  {error_to_string(err)}
-                </div>
-
-                <button
-                  type="submit"
-                  class="btn btn-primary w-fit"
-                  disabled={@uploads.image.entries == [] or has_upload_errors?(@uploads.image)}
-                >
-                  Upload
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div :if={not @can_upload} class="alert alert-info">
-            <.icon name="hero-information-circle" />
-            <span>Maximum of {@max_images} images reached. Delete an image to upload more.</span>
-          </div>
-
-          <div :if={@images != []} class="space-y-4">
-            <h3 class="font-semibold">Current Images ({length(@images)}/{@max_images})</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div :for={image <- @images} class="card bg-base-100 shadow">
-                <figure class="h-32 overflow-hidden">
-                  <img src={Uploads.image_url(image.image_key)} class="object-cover w-full h-full" />
-                </figure>
-                <div class="card-body p-3">
-                  <div class="flex justify-between items-center">
-                    <span :if={image.is_cover} class="badge badge-soft badge-sm">Cover</span>
-                    <span :if={not image.is_cover} class="badge badge-ghost badge-sm">Image</span>
-                    <div class="flex gap-1">
-                      <button
-                        :if={not image.is_cover}
-                        phx-click="set_cover"
-                        phx-value-id={image.id}
-                        class="btn btn-xs btn-outline"
-                      >
-                        Cover
-                      </button>
-                      <button
-                        phx-click="delete_image"
-                        phx-value-id={image.id}
-                        data-confirm="Delete this image?"
-                        class="btn btn-xs btn-error btn-outline"
-                      >
-                        <.icon name="hero-trash" class="size-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div :if={@images == []} class="text-center py-8 text-base-content/60">
-            <.icon name="hero-photo" class="size-12 mx-auto mb-4" />
-            <p>No images yet. Upload your first image above.</p>
-          </div>
-        </div>
-      </.modal>
 
       <div class="mt-6 relative">
         <.markdown_document document={@document} focused_block_id={@focused_block_id} />
@@ -175,6 +74,16 @@ defmodule NotaWeb.NoteLive.Editor do
           block_id={@autocomplete_block_id}
           current_scope={@current_scope}
         />
+
+        <%!-- Hidden form for drag/drop image upload --%>
+        <form
+          id="drop-upload-form"
+          phx-change="drop_validate"
+          phx-submit="drop_image_save"
+          class="hidden"
+        >
+          <.live_file_input upload={@uploads.drop_image} id="drop-image-input" />
+        </form>
       </div>
 
       <div class="mt-4 text-xs text-base-content/40">
@@ -192,8 +101,6 @@ defmodule NotaWeb.NoteLive.Editor do
   def mount(%{"id" => id}, _session, socket) do
     note = Notes.get_note!(socket.assigns.current_scope, id)
     document = parse_body(note.body)
-    images = Uploads.list_images_for_note(note.id)
-    can_upload = length(images) < Uploads.max_images_per_note()
 
     {:ok,
      socket
@@ -204,30 +111,21 @@ defmodule NotaWeb.NoteLive.Editor do
      |> assign(:focused_block_id, nil)
      |> assign(:cursor_offset, 0)
      |> assign(:has_unsaved_changes, false)
-     |> assign(:images, images)
-     |> assign(:max_images, Uploads.max_images_per_note())
-     |> assign(:can_upload, can_upload)
      |> assign(:show_autocomplete, false)
      |> assign(:autocomplete_position, %{top: 0, left: 0})
      |> assign(:autocomplete_block_id, nil)
-     |> assign(:autocomplete_start_pos, nil)}
-  end
-
-  @impl true
-  def handle_params(_params, _url, socket) do
-    socket =
-      if socket.assigns.live_action == :images and socket.assigns.can_upload do
-        allow_upload(socket, :image,
-          accept: ~w(.jpg .jpeg .png .webp),
-          max_entries: 1,
-          max_file_size: 10_000_000,
-          external: &presign_upload/2
-        )
-      else
-        socket
-      end
-
-    {:noreply, socket}
+     |> assign(:autocomplete_start_pos, nil)
+     # Drag/drop image upload state
+     |> assign(:drop_target_block_id, nil)
+     |> assign(:is_dragging, false)
+     |> allow_upload(:drop_image,
+       accept: ~w(.jpg .jpeg .png .webp),
+       max_entries: 1,
+       max_file_size: 10_000_000,
+       external: &presign_upload/2,
+       auto_upload: true,
+       progress: &handle_drop_progress/3
+     )}
   end
 
   defp presign_upload(entry, socket) do
@@ -333,6 +231,20 @@ defmodule NotaWeb.NoteLive.Editor do
     end
   end
 
+  # Delete the note
+  def handle_event("delete", _params, socket) do
+    case Notes.delete_note(socket.assigns.current_scope, socket.assigns.note) do
+      {:ok, _note} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Note deleted")
+         |> push_navigate(to: ~p"/notes")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete note")}
+    end
+  end
+
   # === keyboard shortcut events from JS
 
   # Handle Enter key - split block at cursor position
@@ -417,75 +329,108 @@ defmodule NotaWeb.NoteLive.Editor do
     {:noreply,
      socket
      |> assign(:title, trimmed)
-     |> assign(:has_unsaved_changes, socket.assigns.title != trimmed or socket.assigns.has_unsaved_changes)}
+     |> assign(
+       :has_unsaved_changes,
+       socket.assigns.title != trimmed or socket.assigns.has_unsaved_changes
+     )}
   end
 
-  # === Image upload handlers
-  def handle_event("upload_validate", _params, socket) do
+  # === Drag/drop image upload handlers
+
+  def handle_event("drop_image_start", %{"target_block_id" => target_block_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:drop_target_block_id, target_block_id)
+     |> assign(:is_dragging, true)}
+  end
+
+  def handle_event("drop_image_cancel", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:drop_target_block_id, nil)
+     |> assign(:is_dragging, false)}
+  end
+
+  def handle_event("drop_validate", _params, socket) do
     {:noreply, socket}
   end
 
-  def handle_event("cancel-upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :image, ref)}
+  # Keep the form submit handler as a no-op since auto_upload handles everything
+  def handle_event("drop_image_save", _params, socket) do
+    {:noreply, socket}
   end
 
-  def handle_event("upload_save", _params, socket) do
-    uploaded_keys =
-      consume_uploaded_entries(socket, :image, fn %{key: key}, _entry ->
-        {:ok, key}
-      end)
+  # Delete a block (used for image blocks via keyboard)
+  def handle_event("delete_block", %{"block_id" => block_id}, socket) do
+    document = Document.remove_block(socket.assigns.document, block_id)
+    prev_id = Document.previous_block_id(socket.assigns.document, block_id)
+    next_id = Document.next_block_id(socket.assigns.document, block_id)
 
-    case uploaded_keys do
-      [key] ->
-        is_cover = socket.assigns.images == []
+    # Focus the previous block, or the next, or nil if empty
+    focus_id = prev_id || next_id
 
-        {:ok, _image} =
-          Uploads.create_image(%{
-            image_key: key,
-            note_id: socket.assigns.note.id,
-            is_cover: is_cover
-          })
+    socket =
+      socket
+      |> assign(:document, document)
+      |> assign(:focused_block_id, focus_id)
+      |> assign(:has_unsaved_changes, true)
 
-        images = Uploads.list_images_for_note(socket.assigns.note.id)
-        can_upload = length(images) < Uploads.max_images_per_note()
+    socket =
+      if focus_id do
+        push_event(socket, "focus_block", %{block_id: focus_id})
+      else
+        socket
+      end
 
-        {:noreply,
-         socket
-         |> assign(:images, images)
-         |> assign(:can_upload, can_upload)
-         |> put_flash(:info, "Image uploaded successfully")}
-
-      [] ->
-        {:noreply, socket}
-    end
+    {:noreply, socket}
   end
 
-  def handle_event("set_cover", %{"id" => id}, socket) do
-    image = Uploads.get_image!(id)
+  # Progress callback for drop_image upload - called when upload completes
+  defp handle_drop_progress(:drop_image, entry, socket) do
+    if entry.done? do
+      # Extract original filename (without extension) for alt text
+      alt_text = Path.basename(entry.client_name, Path.extname(entry.client_name))
 
-    if image.note_id == socket.assigns.note.id do
-      {:ok, _} = Uploads.set_cover(image)
-      images = Uploads.list_images_for_note(socket.assigns.note.id)
-      {:noreply, assign(socket, :images, images)}
+      # Upload completed - consume and create image block
+      uploaded_keys =
+        consume_uploaded_entries(socket, :drop_image, fn %{key: key}, _entry ->
+          {:ok, key}
+        end)
+
+      case uploaded_keys do
+        [image_key] ->
+          # Create image record in database
+          {:ok, _image} =
+            Uploads.create_image(%{
+              image_key: image_key,
+              note_id: socket.assigns.note.id
+            })
+
+          # Create ImageBlock and insert into document with filename as alt text
+          {document, new_id} =
+            Document.new_image_block(
+              socket.assigns.document,
+              image_key,
+              after: socket.assigns.drop_target_block_id,
+              alt_text: alt_text
+            )
+
+          {:noreply,
+           socket
+           |> assign(:document, document)
+           |> assign(:drop_target_block_id, nil)
+           |> assign(:is_dragging, false)
+           |> assign(:has_unsaved_changes, true)
+           |> push_event("focus_block", %{block_id: new_id})}
+
+        [] ->
+          {:noreply,
+           socket
+           |> assign(:drop_target_block_id, nil)
+           |> assign(:is_dragging, false)}
+      end
     else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("delete_image", %{"id" => id}, socket) do
-    image = Uploads.get_image!(id)
-
-    if image.note_id == socket.assigns.note.id do
-      {:ok, _} = Uploads.delete_image(image)
-      images = Uploads.list_images_for_note(socket.assigns.note.id)
-      can_upload = length(images) < Uploads.max_images_per_note()
-
-      {:noreply,
-       socket
-       |> assign(:images, images)
-       |> assign(:can_upload, can_upload)
-       |> put_flash(:info, "Image deleted")}
-    else
+      # Upload still in progress
       {:noreply, socket}
     end
   end
@@ -540,7 +485,7 @@ defmodule NotaWeb.NoteLive.Editor do
          |> assign(:focused_block_id, nil)
          |> assign(:has_unsaved_changes, true)}
 
-      not Parser.empty?(value) ->
+      not Parser.empty_content?(value) ->
         handle_content_blur(socket, block_id, trimmed_value)
 
       true ->
@@ -567,16 +512,6 @@ defmodule NotaWeb.NoteLive.Editor do
        |> assign(:has_unsaved_changes, true)}
     end
   end
-
-  defp has_upload_errors?(upload) do
-    not Enum.empty?(upload_errors(upload)) or
-      Enum.any?(upload.entries, fn entry -> not Enum.empty?(upload_errors(upload, entry)) end)
-  end
-
-  defp error_to_string(:too_large), do: "File is too large (max 10MB)"
-  defp error_to_string(:not_accepted), do: "Invalid file type. Use jpg, png, or webp."
-  defp error_to_string(:too_many_files), do: "Too many files selected"
-  defp error_to_string(err), do: "Error: #{inspect(err)}"
 
   defp parse_body(nil), do: %Document{blocks: []}
   defp parse_body(""), do: %Document{blocks: []}

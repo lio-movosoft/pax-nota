@@ -8,8 +8,10 @@ defmodule NotaWeb.MarkdownComponents do
   import NotaWeb.CoreComponents, only: [icon: 1]
 
   alias Nota.Notes.Markdown.Document
+  alias Nota.Uploads
+
   alias Document.Block
-  alias Document.{Text, Emphasis, Strong, Code, Link, WikiLink, Tag, CodeBlock}
+  alias Document.{Code, CodeBlock, Emphasis, ImageBlock, Link, Strong, Tag, Text, WikiLink}
 
   @doc """
   Renders a markdown document with optional focus state.
@@ -165,6 +167,30 @@ defmodule NotaWeb.MarkdownComponents do
       data-block-id={@block.id}
       class="markdown-block bg-base-300 p-3 rounded"
     ><code>{@block.content}</code></pre>
+    """
+  end
+
+  def markdown_block(%{block: %ImageBlock{}} = assigns) do
+    ~H"""
+    <figure
+      id={"block-#{@block.id}"}
+      data-block-id={@block.id}
+      data-block-type="image"
+      class="markdown-block markdown-image"
+      tabindex="0"
+    >
+      <img
+        src={Uploads.image_url(@block.image_key)}
+        alt={@block.alt_text || ""}
+        class="max-w-full rounded-lg"
+      />
+      <figcaption
+        :if={@block.alt_text && @block.alt_text != ""}
+        class="text-sm text-base-content/60 mt-2 text-center"
+      >
+        {@block.alt_text}
+      </figcaption>
+    </figure>
     """
   end
 

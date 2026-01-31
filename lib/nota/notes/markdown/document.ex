@@ -7,9 +7,13 @@ defmodule Nota.Notes.Markdown.Document do
   efficient LiveView diffing and cursor tracking.
 
   ## Block Types
-  - `Paragraph` - Plain text paragraphs
-  - `Heading` - H1-H6 headings
-  - `ListItem` - Unordered list items (grouped into <ul> at render time)
+  - `Block` - Unified block type with `:type` field for:
+    - `:h1`, `:h2`, `:h3` - Headings
+    - `:p` - Paragraphs
+    - `:li` - Unordered list items
+    - `:oli` - Ordered list items
+  - `CodeBlock` - Fenced code blocks (```code```)
+  - `ImageBlock` - Image blocks with S3 key reference (![alt](image_key))
 
   ## Inline Types
   - `Text` - Plain text spans
@@ -17,6 +21,8 @@ defmodule Nota.Notes.Markdown.Document do
   - `Strong` - **bold** text
   - `Code` - `inline code`
   - `Link` - [text](url)
+  - `WikiLink` - [[wiki links]]
+  - `Tag` - #hashtags
   """
 
   # Inline types
@@ -76,7 +82,8 @@ defmodule Nota.Notes.Markdown.Document do
     @type t :: %__MODULE__{id: String.t(), label: String.t()}
   end
 
-  @type inline :: Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t() | Tag.t()
+  @type inline ::
+          Text.t() | Emphasis.t() | Strong.t() | Code.t() | Link.t() | WikiLink.t() | Tag.t()
 
   # Block-level code block (fenced with ```)
 
@@ -87,6 +94,20 @@ defmodule Nota.Notes.Markdown.Document do
     @type t :: %__MODULE__{id: String.t(), content: String.t(), source: String.t()}
   end
 
+  defmodule ImageBlock do
+    @moduledoc "Image block with S3 key reference (![alt](image_key))"
+    @enforce_keys [:id, :image_key, :source]
+    defstruct [:id, :image_key, :alt_text, :source]
+
+    @type t :: %__MODULE__{
+            id: String.t(),
+            image_key: String.t(),
+            alt_text: String.t() | nil,
+            source: String.t()
+          }
+  end
+
+  # === BLOCK
   # Unified block type
 
   defmodule Block do
@@ -111,7 +132,7 @@ defmodule Nota.Notes.Markdown.Document do
           }
   end
 
-  @type block :: Block.t() | CodeBlock.t()
+  @type block :: Block.t() | CodeBlock.t() | ImageBlock.t()
 
   # Document container
 
@@ -134,9 +155,7 @@ defmodule Nota.Notes.Markdown.Document do
   Finds a block by ID.
   """
   @spec find_block([block()], String.t()) :: block() | nil
-  def find_block(blocks, block_id) do
-    Enum.find(blocks, &(&1.id == block_id))
-  end
+  def find_block(blocks, block_id), do: Enum.find(blocks, &(&1.id == block_id))
 
   @doc """
   Updates a block's content from raw markdown source.
@@ -196,6 +215,46 @@ defmodule Nota.Notes.Markdown.Document do
     Enum.flat_map(blocks, fn block ->
       if block.id == after_block_id, do: [block, new_block], else: [block]
     end)
+  end
+
+  @doc """
+  Creates a new ImageBlock with the given image key.
+
+  ## Options
+  - `:after` - Block ID to insert after (inserts at beginning if nil)
+  - `:alt_text` - Optional alt text for the image
+
+  ## Examples
+
+      new_image_block(doc, "user_1_note_1_abc.jpg")
+      {doc, new_block_id}
+
+      new_image_block(doc, "key.jpg", after: block_id, alt_text: "My photo")
+      {doc, new_block_id}
+
+  """
+  def new_image_block(%__MODULE__{blocks: blocks} = doc, image_key, opts \\ []) do
+    new_id = "mv-#{Enum.count(blocks) + 1}"
+    alt_text = Keyword.get(opts, :alt_text, "")
+    after_block_id = Keyword.get(opts, :after, nil)
+
+    source =
+      if alt_text == "" do
+        "![](#{image_key})"
+      else
+        "![#{alt_text}](#{image_key})"
+      end
+
+    new_block = %ImageBlock{
+      id: new_id,
+      image_key: image_key,
+      alt_text: alt_text,
+      source: source
+    }
+
+    blocks = insert_new_block(blocks, new_block, after_block_id)
+
+    {%{doc | blocks: blocks}, new_id}
   end
 
   @doc """
@@ -348,7 +407,9 @@ defmodule Nota.Notes.Markdown.Document do
   def split_block(%__MODULE__{} = doc, block_id, content, cursor_position) do
     # Split content at cursor position
     before_cursor = String.slice(content, 0, cursor_position)
-    after_cursor = String.slice(content, cursor_position, String.length(content) - cursor_position)
+
+    after_cursor =
+      String.slice(content, cursor_position, String.length(content) - cursor_position)
 
     # Update original block with content before cursor
     doc = update_block(doc, block_id, before_cursor)

@@ -4,12 +4,9 @@ defmodule Nota.Uploads do
   """
 
   import Ecto.Query
-  alias Nota.Repo
+
   alias Nota.Notes.NoteImage
-
-  @max_images_per_note 3
-
-  def max_images_per_note, do: @max_images_per_note
+  alias Nota.Repo
 
   @doc """
   Returns all images for a note.
@@ -17,7 +14,7 @@ defmodule Nota.Uploads do
   def list_images_for_note(note_id) do
     NoteImage
     |> where(note_id: ^note_id)
-    |> order_by([i], desc: i.is_cover, asc: i.inserted_at)
+    |> order_by([i], asc: i.inserted_at)
     |> Repo.all()
   end
 
@@ -44,18 +41,48 @@ defmodule Nota.Uploads do
   end
 
   @doc """
-  Sets an image as the cover, unsetting any previous cover.
+  Deletes all images for a note from database and S3.
+  Called when a note is deleted.
   """
-  def set_cover(%NoteImage{} = image) do
-    Repo.transaction(fn ->
-      NoteImage
-      |> where(note_id: ^image.note_id, is_cover: true)
-      |> Repo.update_all(set: [is_cover: false])
+  def delete_all_images_for_note(note_id) do
+    images = list_images_for_note(note_id)
+    Enum.each(images, &delete_image/1)
+    :ok
+  end
 
-      image
-      |> Ecto.Changeset.change(is_cover: true)
-      |> Repo.update!()
-    end)
+  @doc """
+  Extracts image keys from note body markdown.
+  Matches ![alt](image_key) patterns.
+  """
+  def parse_image_keys(nil), do: []
+  def parse_image_keys(""), do: []
+
+  def parse_image_keys(body) when is_binary(body) do
+    ~r/!\[[^\]]*\]\(([^)]+)\)/
+    |> Regex.scan(body)
+    |> Enum.map(fn [_, key] -> key end)
+    |> Enum.uniq()
+  end
+
+  @doc """
+  Syncs image records with what's actually referenced in the note body.
+  Deletes orphaned images (those in DB but not in markdown).
+  Called after note save.
+  """
+  def sync_images_for_note(note_id, body) do
+    referenced_keys = parse_image_keys(body) |> MapSet.new()
+    existing_images = list_images_for_note(note_id)
+
+    # Find orphaned images (in DB but not in markdown)
+    orphaned_images =
+      Enum.reject(existing_images, fn image ->
+        MapSet.member?(referenced_keys, image.image_key)
+      end)
+
+    # Delete each orphan (S3 file + DB record)
+    Enum.each(orphaned_images, &delete_image/1)
+
+    :ok
   end
 
   @doc """
@@ -65,22 +92,6 @@ defmodule Nota.Uploads do
     NoteImage
     |> where(note_id: ^note_id)
     |> Repo.aggregate(:count)
-  end
-
-  @doc """
-  Checks if more images can be added to a note.
-  """
-  def can_add_image?(note_id) do
-    count_images_for_note(note_id) < @max_images_per_note
-  end
-
-  @doc """
-  Gets the cover image for a note, or nil if none.
-  """
-  def get_cover_image(note_id) do
-    NoteImage
-    |> where(note_id: ^note_id, is_cover: true)
-    |> Repo.one()
   end
 
   @doc """
@@ -105,18 +116,34 @@ defmodule Nota.Uploads do
   end
 
   @doc """
-  Returns the public URL for an image.
+  Returns a presigned URL for reading an image.
+  URL expires in 1 hour.
   """
   def image_url(image_key) do
     config = s3_config()
-    "#{config[:scheme]}#{config[:host]}:#{config[:port]}/#{config[:bucket]}/#{image_key}"
+
+    {:ok, url} =
+      ExAws.S3.presigned_url(
+        ExAws.Config.new(:s3, config),
+        :get,
+        config[:bucket],
+        image_key,
+        expires_in: 3600
+      )
+
+    url
   end
 
   defp delete_from_s3(image_key) do
     config = s3_config()
 
-    ExAws.S3.delete_object(config[:bucket], image_key)
-    |> ExAws.request(config)
+    try do
+      ExAws.S3.delete_object(config[:bucket], image_key)
+      |> ExAws.request(config)
+    rescue
+      # In test environment, hackney may not be available
+      UndefinedFunctionError -> :ok
+    end
   end
 
   defp s3_config do

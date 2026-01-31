@@ -11,7 +11,7 @@ Ready to run in production? Please [check our deployment guides](https://hexdocs
 
 ## S3/MinIO Setup for Image Uploads
 
-Recipe images are stored in S3-compatible storage. For local development, we use MinIO.
+Media files (images) are stored in S3-compatible storage. For local development, we use MinIO.
 
 ### Development Setup (MinIO)
 
@@ -45,7 +45,7 @@ docker-compose up -d minio
 
 ```bash
 docker exec -it <minio_container> mc alias set local http://localhost:9000 root root421-
-docker exec -it <minio_container> mc mb local/recipe-images
+docker exec -it <minio_container> mc mb local/nota-media
 docker exec -it <minio_container> mc anonymous set download local/recipe-images
 ```
 
