@@ -82,6 +82,18 @@ defmodule NotaWeb.Router do
     end
   end
 
+  # contacts management
+  scope "/contacts", NotaWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_contacts_permission,
+      on_mount: [{NotaWeb.UserAuth, {:require_permission, :contacts}}] do
+      live "/", Contacts.Index, :index
+      live "/new", Contacts.Form, :new
+      live "/:id/edit", Contacts.Form, :edit
+    end
+  end
+
   scope "/", NotaWeb do
     pipe_through [:browser]
 

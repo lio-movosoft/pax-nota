@@ -39,6 +39,9 @@
         <li>
           <.link href={~p"/notes"}>Notes</.link>
         </li>
+        <li :if={Nota.Permissions.can?(@current_scope.user, :contacts)}>
+          <.link href={~p"/contacts"}>Contacts</.link>
+        </li>
         <li>
           <details>
             <summary>
