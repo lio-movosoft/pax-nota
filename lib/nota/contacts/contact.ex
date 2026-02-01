@@ -6,6 +6,7 @@ defmodule Nota.Contacts.Contact do
   import Ecto.Changeset
 
   alias Nota.Accounts.User
+  alias Nota.Notes.Note
 
   schema "contacts" do
     field :first_name, :string
@@ -15,6 +16,7 @@ defmodule Nota.Contacts.Contact do
     field :linkedin_url, :string
 
     belongs_to :user, User
+    has_many :notes, Note
 
     timestamps(type: :utc_datetime)
   end

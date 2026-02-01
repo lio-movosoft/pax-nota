@@ -92,8 +92,8 @@ defmodule NotaWeb do
       import Nota.Permissions
 
       # Common modules used in templates
-      alias Phoenix.LiveView.JS
       alias NotaWeb.Layouts
+      alias Phoenix.LiveView.JS
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

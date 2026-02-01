@@ -29,6 +29,7 @@ defmodule NotaWeb.CoreComponents do
   use Phoenix.Component
   use Gettext, backend: NotaWeb.Gettext
 
+  alias Phoenix.HTML.Form
   alias Phoenix.LiveView.JS
 
   @doc """
@@ -204,7 +205,7 @@ defmodule NotaWeb.CoreComponents do
   def input(%{type: "checkbox"} = assigns) do
     assigns =
       assign_new(assigns, :checked, fn ->
-        Phoenix.HTML.Form.normalize_value("checkbox", assigns[:value])
+        Form.normalize_value("checkbox", assigns[:value])
       end)
 
     ~H"""
@@ -312,6 +313,7 @@ defmodule NotaWeb.CoreComponents do
   Renders a header with title.
   """
   attr :class, :string, default: "pb-4"
+  attr :icon, :string, default: nil, doc: "optional icon name (e.g. hero-users)"
   slot :inner_block, required: true
   slot :subtitle
   slot :actions
@@ -319,13 +321,16 @@ defmodule NotaWeb.CoreComponents do
   def header(assigns) do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
-      <div>
-        <h1 class="text-lg font-semibold leading-8">
-          {render_slot(@inner_block)}
-        </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
-          {render_slot(@subtitle)}
-        </p>
+      <div class={[@icon && "flex items-center gap-4"]}>
+        <.icon :if={@icon} name={@icon} class="size-16 text-base-content/50" />
+        <div>
+          <h1 class="text-lg font-semibold leading-8">
+            {render_slot(@inner_block)}
+          </h1>
+          <p :if={@subtitle != []} class="text-sm text-base-content/70">
+            {render_slot(@subtitle)}
+          </p>
+        </div>
       </div>
       <div class="flex-none">{render_slot(@actions)}</div>
     </header>
@@ -353,6 +358,7 @@ defmodule NotaWeb.CoreComponents do
 
   slot :col, required: true do
     attr :label, :any
+    attr :class, :string
   end
 
   slot :action, doc: "the slot for showing user actions in the last table column"
@@ -367,18 +373,18 @@ defmodule NotaWeb.CoreComponents do
     <table class="table table-zebra">
       <thead>
         <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
+          <th :for={col <- @col} class={col[:class]}>{col[:label]}</th>
           <th :if={@action != []}>
             <span class="sr-only">{gettext("Actions")}</span>
           </th>
         </tr>
       </thead>
       <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-        <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
+        <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="hover:bg-primary/10">
           <td
             :for={col <- @col}
             phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
+            class={[col[:class], @row_click && "hover:cursor-pointer"]}
           >
             {render_slot(col, @row_item.(row))}
           </td>

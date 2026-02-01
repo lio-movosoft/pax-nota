@@ -1,8 +1,8 @@
 defmodule Nota.PermissionsTest do
   use Nota.DataCase
 
-  alias Nota.Permissions
   alias Nota.Accounts.User
+  alias Nota.Permissions
 
   describe "can?/2" do
     test "god can do anything" do

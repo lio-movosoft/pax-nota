@@ -3,6 +3,7 @@ defmodule NotaWeb.NoteLiveTest do
 
   import Phoenix.LiveViewTest
   import Nota.NotesFixtures
+  import Nota.ContactsFixtures
 
   setup :register_and_log_in_user
 
@@ -10,6 +11,18 @@ defmodule NotaWeb.NoteLiveTest do
     note = note_fixture(scope)
 
     %{note: note}
+  end
+
+  defp create_note_with_contact(%{scope: scope, user: user}) do
+    # Grant contacts permission
+    user
+    |> Ecto.Changeset.change(permissions: ["contacts"])
+    |> Nota.Repo.update!()
+
+    contact = contact_fixture(scope)
+    note = note_fixture(scope, %{contact_id: contact.id})
+
+    %{note: note, contact: contact}
   end
 
   describe "Index" do
@@ -36,12 +49,12 @@ defmodule NotaWeb.NoteLiveTest do
       assert html =~ "Hello Note"
     end
 
-    test "navigates to editor by clicking note title", %{conn: conn, note: note} do
+    test "navigates to editor by clicking note row", %{conn: conn, note: note} do
       {:ok, index_live, _html} = live(conn, ~p"/notes")
 
       assert {:ok, _editor_live, html} =
                index_live
-               |> element("#notes-#{note.id} a", note.title)
+               |> element("#notes-#{note.id} td:first-child")
                |> render_click()
                |> follow_redirect(conn, ~p"/notes/#{note}")
 
@@ -99,6 +112,37 @@ defmodule NotaWeb.NoteLiveTest do
 
       assert html =~ "Note deleted"
       refute html =~ note.title
+    end
+
+    test "back button links to /notes when note has no contact", %{conn: conn, note: note} do
+      {:ok, _editor_live, html} = live(conn, ~p"/notes/#{note}")
+
+      assert html =~ ~s(href="/notes")
+      refute html =~ ~s(href="/contacts/)
+    end
+  end
+
+  describe "Editor with contact" do
+    setup [:create_note_with_contact]
+
+    test "back button links to contact page when note has contact", %{conn: conn, note: note, contact: contact} do
+      {:ok, _editor_live, html} = live(conn, ~p"/notes/#{note}")
+
+      assert html =~ ~s(href="/contacts/#{contact.id}")
+    end
+
+    test "deletes note and redirects to contact page", %{conn: conn, note: note, contact: contact} do
+      {:ok, editor_live, _html} = live(conn, ~p"/notes/#{note}")
+
+      # Click delete in dropdown menu
+      assert {:ok, _contact_live, html} =
+               editor_live
+               |> element("a", "Delete Note")
+               |> render_click()
+               |> follow_redirect(conn, ~p"/contacts/#{contact}")
+
+      assert html =~ "Note deleted"
+      assert html =~ contact.first_name
     end
   end
 end

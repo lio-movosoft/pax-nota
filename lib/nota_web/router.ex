@@ -55,6 +55,7 @@ defmodule NotaWeb.Router do
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
       live "/notes", NoteLive.Index, :index
+      live "/notes/new", NoteLive.New, :new
       live "/notes/:id", NoteLive.Editor, :edit
     end
 
@@ -90,6 +91,7 @@ defmodule NotaWeb.Router do
       on_mount: [{NotaWeb.UserAuth, {:require_permission, :contacts}}] do
       live "/", Contacts.Index, :index
       live "/new", Contacts.Form, :new
+      live "/:id", Contacts.Show, :show
       live "/:id/edit", Contacts.Form, :edit
     end
   end

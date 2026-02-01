@@ -32,6 +32,13 @@ defmodule Nota.Contacts do
   end
 
   @doc """
+  Returns the total count of contacts across all users.
+  """
+  def count_contacts do
+    Repo.aggregate(Contact, :count)
+  end
+
+  @doc """
   Returns the list of contacts.
 
   Accepts an optional `opts` keyword list:
@@ -188,5 +195,32 @@ defmodule Nota.Contacts do
   """
   def change_new_contact(%Scope{} = scope, attrs \\ %{}) do
     Contact.changeset(%Contact{user_id: scope.user.id}, attrs, scope)
+  end
+
+  @doc """
+  Returns notes associated with a contact, ordered by updated_at desc.
+  """
+  def list_notes_for_contact(%Scope{} = scope, %Contact{} = contact) do
+    true = contact.user_id == scope.user.id
+
+    contact
+    |> Repo.preload(notes: from(n in Nota.Notes.Note, order_by: [desc: n.updated_at]))
+    |> Map.get(:notes, [])
+  end
+
+  @doc """
+  Touches a contact to update its updated_at timestamp.
+  """
+  def touch_contact(%Scope{} = scope, contact_id) when is_integer(contact_id) do
+    Contact
+    |> where(id: ^contact_id, user_id: ^scope.user.id)
+    |> Repo.update_all(set: [updated_at: DateTime.utc_now(:second)])
+
+    :ok
+  end
+
+  def touch_contact(_scope, nil), do: :ok
+  def touch_contact(scope, contact_id) when is_binary(contact_id) do
+    touch_contact(scope, String.to_integer(contact_id))
   end
 end

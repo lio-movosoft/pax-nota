@@ -13,8 +13,8 @@ defmodule NotaWeb.Users.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <.header>
-        User Management
+      <.header icon="hero-users">
+        Users
         <:subtitle>Manage all users in the system</:subtitle>
         <:actions>
           <.link navigate={~p"/users/invite"}>

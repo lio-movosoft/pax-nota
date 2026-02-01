@@ -12,7 +12,7 @@ defmodule NotaWeb.Contacts.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <.header>
+      <.header icon="hero-identification">
         Contacts
         <:subtitle>Manage your contacts</:subtitle>
         <:actions>
@@ -44,20 +44,27 @@ defmodule NotaWeb.Contacts.Index do
         </div>
       </.form>
 
-      <.table id="contacts" rows={@streams.contacts}>
+      <.table
+        id="contacts"
+        rows={@streams.contacts}
+        row_click={fn {_id, contact} -> JS.navigate(~p"/contacts/#{contact}") end}
+      >
         <:col
           :let={{_id, contact}}
           label={sort_label("Updated", @order_by, updated_at_desc: " ▼", updated_at_asc: " ▲")}
         >
-          {Calendar.strftime(contact.updated_at, "%Y-%m-%d")}
+          <span class="text-base-content/60 whitespace-nowrap">
+            {Calendar.strftime(contact.updated_at, "%Y-%m-%d")}
+          </span>
         </:col>
         <:col
           :let={{_id, contact}}
           label={sort_label("Name", @order_by, last_name_asc: " ▲", last_name_desc: " ▼")}
+          class="min-w-48"
         >
           {contact.first_name} {contact.last_name}
         </:col>
-        <:col :let={{_id, contact}} label="Contact">
+        <:col :let={{_id, contact}} label="Contact" class="w-full">
           <div class="flex flex-col gap-1">
             <div :if={contact.email}>{contact.email}</div>
             <div :if={contact.phone} class="text-sm text-zinc-500">{contact.phone}</div>

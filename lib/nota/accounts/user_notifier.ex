@@ -5,8 +5,8 @@ defmodule Nota.Accounts.UserNotifier do
   """
   import Swoosh.Email
 
-  alias Nota.Mailer
   alias Nota.Accounts.User
+  alias Nota.Mailer
 
   @sender "support@movo-soft.com"
   @signature "The Team at Nota"

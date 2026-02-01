@@ -9,8 +9,9 @@ defmodule NotaWeb.NoteLive.Index do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <.header>
+      <.header icon="hero-clipboard-document-list">
         My Notes
+        <:subtitle>Your personal notes</:subtitle>
         <:actions>
           <.button variant="primary" phx-click="new_note">
             <.icon name="hero-plus" /> New Note
@@ -40,7 +41,11 @@ defmodule NotaWeb.NoteLive.Index do
         </div>
       </.form>
 
-      <.table id="notes" rows={@streams.notes}>
+      <.table
+        id="notes"
+        rows={@streams.notes}
+        row_click={fn {_id, note} -> JS.navigate(~p"/notes/#{note}") end}
+      >
         <:col
           :let={{_id, note}}
           label={sort_label("Updated", @order_by, updated_at_desc: " ▼", updated_at_asc: " ▲")}
@@ -49,10 +54,8 @@ defmodule NotaWeb.NoteLive.Index do
             {Calendar.strftime(note.updated_at, "%Y-%m-%d")}
           </span>
         </:col>
-        <:col :let={{_id, note}} label="Title">
-          <.link navigate={~p"/notes/#{note}"} class="font-medium hover:underline">
-            {note.title || "Untitled"}
-          </.link>
+        <:col :let={{_id, note}} label="Title" class="w-full">
+          {note.title || "Untitled"}
         </:col>
       </.table>
     </Layouts.app>
