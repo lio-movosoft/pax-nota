@@ -73,18 +73,23 @@ Set the following environment variables:
 * Forum: https://elixirforum.com/c/phoenix-forum
 * Source: https://github.com/phoenixframework/phoenix
 
+### favicon setup
+
+I used https://favicon.io/favicon-converter/
+added  this to lib/nota_web/components/layouts/root.html.heex
+
+```elixir
+<link rel="icon" href="/favicon.ico" sizes="48x48" />
+<link rel="apple-touch-icon" sizes="180x180" href={~s"/apple-touch-icon.png"} />
+<link rel="icon" type="image/png" sizes="32x32" href={~s"/favicon-32x32.png"} />
+<link rel="icon" type="image/png" sizes="16x16" href={~s"/favicon-16x16.png"} />
+<link rel="manifest" href={~s"/site.webmanifest"} />
+```
+and edited the site.webmanifest
+
+```
+{"name":"PaxNota","short_name":"PaxNota","icons":[{"src":"/android-chrome-192x192.png","sizes":"192x192","type":"image/png"},{"src":"/android-chrome-512x512.png","sizes":"512x512","type":"image/png"}],"theme_color":"#ffffff","background_color":"#ffffff","display":"standalone"}
+```
+
+
 # Seed
-
-## Seed Pepperplate Recipes
-
-Usage:
-
-```
-  mix run priv/repo/seed_recipes.exs <user_id> <path_to_recipes>
-```
-
-An example
-
-```
-  mix run priv/repo/seed_recipes.exs 1 /Users/lio/projects/prj.nota/pepperplate_recipes
-```

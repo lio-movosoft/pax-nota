@@ -17,6 +17,9 @@ defmodule NotaWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
+  alias Nota.Accounts.Scope
+  alias Nota.AccountsFixtures
+
   using do
     quote do
       # The default endpoint for testing
@@ -45,8 +48,8 @@ defmodule NotaWeb.ConnCase do
   test context.
   """
   def register_and_log_in_user(%{conn: conn} = context) do
-    user = Nota.AccountsFixtures.user_fixture()
-    scope = Nota.Accounts.Scope.for_user(user)
+    user = AccountsFixtures.user_fixture()
+    scope = Scope.for_user(user)
 
     opts =
       context

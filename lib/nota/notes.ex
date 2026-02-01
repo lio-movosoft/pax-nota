@@ -6,6 +6,7 @@ defmodule Nota.Notes do
   import Ecto.Query, warn: false
 
   alias Nota.Accounts.Scope
+  alias Nota.Contacts
   alias Nota.Notes.Note
   alias Nota.Notes.NoteTag
   alias Nota.Notes.Tag
@@ -54,6 +55,7 @@ defmodule Nota.Notes do
 
     Note
     |> where(user_id: ^scope.user.id)
+    |> where([n], is_nil(n.contact_id))
     |> maybe_search(query, order_by)
     |> maybe_limit(limit)
     |> Repo.all()
@@ -148,6 +150,7 @@ defmodule Nota.Notes do
            |> Note.changeset(attrs, scope)
            |> Repo.insert() do
       sync_tags(scope, note)
+      Contacts.touch_contact(scope, note.contact_id)
       broadcast_note(scope, {:created, note})
       {:ok, note}
     end

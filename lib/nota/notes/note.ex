@@ -5,7 +5,8 @@ defmodule Nota.Notes.Note do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias Nota.Notes.{Tag, NoteTag}
+  alias Nota.Contacts.Contact
+  alias Nota.Notes.{NoteTag, Tag}
 
   schema "notes" do
     field :title, :string
@@ -14,6 +15,7 @@ defmodule Nota.Notes.Note do
 
     field :cover_image_key, :string, virtual: true
 
+    belongs_to :contact, Contact
     many_to_many :tags, Tag, join_through: NoteTag
 
     timestamps(type: :utc_datetime)
@@ -22,7 +24,7 @@ defmodule Nota.Notes.Note do
   @doc false
   def changeset(note, attrs, scope) do
     note
-    |> cast(attrs, [:title, :body])
+    |> cast(attrs, [:title, :body, :contact_id])
     |> validate_required([:title])
     |> put_change(:user_id, scope.user.id)
   end

@@ -1,10 +1,10 @@
 defmodule NotaWeb.UserAuthTest do
   use NotaWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
   alias Nota.Accounts
   alias Nota.Accounts.Scope
   alias NotaWeb.UserAuth
+  alias Phoenix.LiveView
 
   import Nota.AccountsFixtures
 

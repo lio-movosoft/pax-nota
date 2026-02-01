@@ -6,7 +6,7 @@ defmodule Nota.Accounts do
   import Ecto.Query, warn: false
   alias Nota.Repo
 
-  alias Nota.Accounts.{User, UserToken, UserNotifier}
+  alias Nota.Accounts.{User, UserNotifier, UserToken}
 
   @doc """
   Subscribes to scoped notifications about any user changes.
@@ -24,7 +24,7 @@ defmodule Nota.Accounts do
   #   Phoenix.PubSub.subscribe(Nota.PubSub, "user:#{key}:users")
   # end
 
-  def subscribe_all_users(), do: Phoenix.PubSub.subscribe(Nota.PubSub, "user:all:users")
+  def subscribe_all_users, do: Phoenix.PubSub.subscribe(Nota.PubSub, "user:all:users")
 
   # defp broadcast_user(%Scope{} = scope, message) do
   #   key = scope.user.id

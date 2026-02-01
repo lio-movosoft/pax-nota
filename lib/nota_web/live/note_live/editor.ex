@@ -38,7 +38,7 @@ defmodule NotaWeb.NoteLive.Editor do
           {Calendar.strftime(@note.inserted_at, "%Y/%m/%d")} - creation
         </:subtitle>
         <:actions>
-          <.button navigate={~p"/notes"}>
+          <.button navigate={back_path(@note)}>
             <.icon name="hero-arrow-left" />
           </.button>
           <.button :if={@has_unsaved_changes} variant="primary" phx-click="save">
@@ -238,7 +238,7 @@ defmodule NotaWeb.NoteLive.Editor do
         {:noreply,
          socket
          |> put_flash(:info, "Note deleted")
-         |> push_navigate(to: ~p"/notes")}
+         |> push_navigate(to: back_path(socket.assigns.note))}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Failed to delete note")}
@@ -516,4 +516,7 @@ defmodule NotaWeb.NoteLive.Editor do
   defp parse_body(nil), do: %Document{blocks: []}
   defp parse_body(""), do: %Document{blocks: []}
   defp parse_body(body), do: Parser.parse(body)
+
+  defp back_path(%{contact_id: nil}), do: ~p"/notes"
+  defp back_path(%{contact_id: contact_id}), do: ~p"/contacts/#{contact_id}"
 end

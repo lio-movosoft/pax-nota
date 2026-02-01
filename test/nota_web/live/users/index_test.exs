@@ -11,7 +11,7 @@ defmodule NotaWeb.Users.IndexTest do
         |> log_in_user(god_fixture())
         |> live(~p"/users")
 
-      assert html =~ "User Management"
+      assert html =~ "Users"
     end
 
     test "renders users page for users with :users permission", %{conn: conn} do
@@ -20,7 +20,7 @@ defmodule NotaWeb.Users.IndexTest do
         |> log_in_user(user_fixture(%{permissions: [:users]}))
         |> live(~p"/users")
 
-      assert html =~ "User Management"
+      assert html =~ "Users"
     end
 
     test "redirects users without :users permission", %{conn: conn} do
