@@ -42,12 +42,18 @@ defmodule NotaWeb.Admin.Dashboard do
           </:actions>
         </.card>
         <.card id="info-widget">
-          <:title>Phoenix</:title>
-          <div class="flex-1">
-            <a href="/" class="flex-1 flex w-fit items-center gap-2">
+          <:title>Project</:title>
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-row gap-2 items-center">
+              <img src={~s"/images/app-logo.svg"} class="h-4" /><span>by</span>
+              <img src={~s"/images/movosoft-logo-long.svg"} class="h-10" />
+            </div>
+            <div class="flex flex-row w-fit items-center gap-2">
+              <span>Using Phoenix</span>
               <img src={~p"/images/logo.svg"} width="36" />
               <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-            </a>
+            </div>
+            <div>A project started on 2026-01-25</div>
           </div>
         </.card>
       </div>
