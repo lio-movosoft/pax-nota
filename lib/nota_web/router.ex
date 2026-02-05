@@ -21,6 +21,7 @@ defmodule NotaWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/privacy-policy", PageController, :privacy_policy
   end
 
   # Other scopes may use custom stacks.
