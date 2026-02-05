@@ -35,7 +35,9 @@ defmodule NotaWeb.NoteLive.Editor do
         </form>
         <:subtitle>
           {Calendar.strftime(@note.updated_at, "%Y/%m/%d")} - last edit <br />
-          {Calendar.strftime(@note.inserted_at, "%Y/%m/%d")} - creation
+          <span class="text-base-content/40">
+            {Calendar.strftime(@note.inserted_at, "%Y/%m/%d")} - creation
+          </span>
         </:subtitle>
         <:actions>
           <.button navigate={back_path(@note)}>

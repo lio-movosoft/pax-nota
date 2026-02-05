@@ -11,7 +11,6 @@ defmodule NotaWeb.NoteLive.Index do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <.header icon="hero-clipboard-document-list">
         My Notes
-        <:subtitle>Your personal notes</:subtitle>
         <:actions>
           <.button variant="primary" phx-click="new_note">
             <.icon name="hero-plus" /> New Note

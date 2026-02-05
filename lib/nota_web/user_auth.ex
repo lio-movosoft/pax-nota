@@ -314,7 +314,6 @@ defmodule NotaWeb.UserAuth do
   end
 
   @doc "Returns the path to redirect to after log in."
-  def signed_in_path(%Accounts.User{is_god: true}), do: ~p"/admin"
   def signed_in_path(%Accounts.User{}), do: ~p"/notes"
   def signed_in_path(_), do: ~p"/"
 
