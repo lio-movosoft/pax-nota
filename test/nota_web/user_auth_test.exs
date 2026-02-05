@@ -29,10 +29,10 @@ defmodule NotaWeb.UserAuthTest do
       assert Accounts.get_user_by_session_token(token)
     end
 
-    test "redirects god users to /admin", %{conn: conn} do
+    test "redirects god users to /notes", %{conn: conn} do
       god_user = %{god_fixture() | authenticated_at: DateTime.utc_now(:second)}
       conn = UserAuth.log_in_user(conn, god_user)
-      assert redirected_to(conn) == ~p"/admin"
+      assert redirected_to(conn) == ~p"/notes"
     end
 
     test "clears everything previously stored in the session", %{conn: conn, user: user} do
