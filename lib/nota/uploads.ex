@@ -95,6 +95,26 @@ defmodule Nota.Uploads do
   end
 
   @doc """
+  Updates processing status for an image found by its key.
+  """
+  def update_processing_status_by_key(image_key, status) do
+    NoteImage
+    |> where(image_key: ^image_key)
+    |> Repo.update_all(set: [processing_status: status])
+  end
+
+  @doc """
+  Returns a map of image_key => processing_status for all images in a note.
+  """
+  def image_statuses_for_note(note_id) do
+    NoteImage
+    |> where(note_id: ^note_id)
+    |> select([i], {i.image_key, i.processing_status})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
   Generates a pre-signed URL for uploading to S3/MinIO.
   """
   def presigned_upload_url(user_id, note_id, extension) do
@@ -116,10 +136,28 @@ defmodule Nota.Uploads do
   end
 
   @doc """
-  Returns a presigned URL for reading an image.
+  Returns a presigned URL for reading an image (original key).
   URL expires in 1 hour.
   """
   def image_url(image_key) do
+    presigned_get_url(image_key)
+  end
+
+  @doc """
+  Returns a presigned URL for a specific variant.
+  """
+  def image_url(image_key, :display) do
+    presigned_get_url("display/#{Path.rootname(image_key)}.webp")
+  end
+
+  @doc """
+  Returns the appropriate URL based on processing status.
+  Falls back to the raw (root-level) key if not yet processed.
+  """
+  def resolved_image_url(key, _variant, :completed), do: image_url(key, :display)
+  def resolved_image_url(key, _variant, _status), do: image_url(key)
+
+  defp presigned_get_url(path) do
     config = s3_config()
 
     {:ok, url} =
@@ -127,7 +165,7 @@ defmodule Nota.Uploads do
         ExAws.Config.new(:s3, config),
         :get,
         config[:bucket],
-        image_key,
+        path,
         expires_in: 3600
       )
 
@@ -137,12 +175,16 @@ defmodule Nota.Uploads do
   defp delete_from_s3(image_key) do
     config = s3_config()
 
-    try do
-      ExAws.S3.delete_object(config[:bucket], image_key)
-      |> ExAws.request(config)
-    rescue
-      # In test environment, hackney may not be available
-      UndefinedFunctionError -> :ok
+    for path <- [
+          image_key,
+          "display/#{Path.rootname(image_key)}.webp"
+        ] do
+      try do
+        ExAws.S3.delete_object(config[:bucket], path)
+        |> ExAws.request(config)
+      rescue
+        UndefinedFunctionError -> :ok
+      end
     end
   end
 

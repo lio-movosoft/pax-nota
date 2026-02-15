@@ -31,6 +31,7 @@ defmodule NotaWeb.MarkdownComponents do
   """
   attr :document, :map, required: true
   attr :focused_block_id, :string, default: nil
+  attr :image_statuses, :map, default: %{}
 
   def markdown_document(assigns) do
     grouped = group_blocks(assigns.document.blocks)
@@ -51,6 +52,7 @@ defmodule NotaWeb.MarkdownComponents do
                 :for={block <- items}
                 block={block}
                 focused={block.id == @focused_block_id}
+                image_statuses={@image_statuses}
               />
             </ul>
           <% {:oli, items} -> %>
@@ -62,10 +64,11 @@ defmodule NotaWeb.MarkdownComponents do
                 :for={block <- items}
                 block={block}
                 focused={block.id == @focused_block_id}
+                image_statuses={@image_statuses}
               />
             </ol>
           <% {:block, block} -> %>
-            <.markdown_block block={block} focused={block.id == @focused_block_id} />
+            <.markdown_block block={block} focused={block.id == @focused_block_id} image_statuses={@image_statuses} />
         <% end %>
       <% end %>
       <div
@@ -101,6 +104,7 @@ defmodule NotaWeb.MarkdownComponents do
   """
   attr :block, :map, required: true
   attr :focused, :boolean, default: false
+  attr :image_statuses, :map, default: %{}
 
   def markdown_block(%{focused: true} = assigns) do
     ~H"""
@@ -171,6 +175,9 @@ defmodule NotaWeb.MarkdownComponents do
   end
 
   def markdown_block(%{block: %ImageBlock{}} = assigns) do
+    status = Map.get(assigns.image_statuses, assigns.block.image_key, :completed)
+    assigns = assign(assigns, :src, Uploads.resolved_image_url(assigns.block.image_key, :display, status))
+
     ~H"""
     <figure
       id={"block-#{@block.id}"}
@@ -180,7 +187,7 @@ defmodule NotaWeb.MarkdownComponents do
       tabindex="0"
     >
       <img
-        src={Uploads.image_url(@block.image_key)}
+        src={@src}
         alt={@block.alt_text || ""}
         class="max-w-full rounded-lg"
       />
