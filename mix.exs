@@ -60,6 +60,7 @@ defmodule Nota.MixProject do
        compile: false,
        depth: 1},
       {:swoosh, "~> 1.16"},
+      {:gen_smtp, "~> 1.0", only: :prod},
       {:req, "~> 0.5"},
       {:ex_aws_s3, "~> 2.5"},
       {:telemetry_metrics, "~> 1.0"},
