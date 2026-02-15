@@ -136,4 +136,15 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+
+  # ## Configuring the mailer with AWS SES
+  config :movosoft, Movosoft.Mailer,
+    adapter: Swoosh.Adapters.AmazonSES,
+    region: System.get_env("AWS_SES_REGION") || "us-east-1",
+    access_key:
+      System.get_env("AWS_ACCESS_KEY_ID") ||
+        raise("environment variable AWS_ACCESS_KEY_ID is missing."),
+    secret:
+      System.get_env("AWS_SECRET_ACCESS_KEY") ||
+        raise("environment variable AWS_SECRET_ACCESS_KEY is missing.")
 end
