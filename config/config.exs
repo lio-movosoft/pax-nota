@@ -88,7 +88,7 @@ config :ex_aws,
   http_client: ExAws.Request.Req
 
 # Masher image processing service node (distributed Erlang)
-config :nota, :masher_node, :"masher@localhost"
+config :nota, :masher_node, :masher@localhost
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
