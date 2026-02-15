@@ -12,9 +12,8 @@ defmodule Nota.Application do
       Nota.Repo,
       {DNSCluster, query: Application.get_env(:nota, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Nota.PubSub},
-      # Start a worker by calling: Nota.Worker.start_link(arg)
-      # {Nota.Worker, arg},
-      # Start to serve requests, typically the last entry
+      Supervisor.child_spec({Phoenix.PubSub, name: :masher_pubsub}, id: :masher_pubsub),
+      Nota.ImageListener,
       NotaWeb.Endpoint
     ]
 

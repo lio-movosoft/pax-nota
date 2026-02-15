@@ -9,6 +9,7 @@ defmodule Nota.Notes.NoteImage do
 
   schema "note_images" do
     field :image_key, :string
+    field :processing_status, Ecto.Enum, values: [:pending, :completed, :failed], default: :pending
 
     belongs_to :note, Note
 
@@ -17,7 +18,7 @@ defmodule Nota.Notes.NoteImage do
 
   def changeset(note_image, attrs) do
     note_image
-    |> cast(attrs, [:image_key, :note_id])
+    |> cast(attrs, [:image_key, :note_id, :processing_status])
     |> validate_required([:image_key, :note_id])
   end
 end

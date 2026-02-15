@@ -66,7 +66,7 @@ defmodule NotaWeb.NoteLive.Editor do
       </.header>
 
       <div class="mt-6 relative">
-        <.markdown_document document={@document} focused_block_id={@focused_block_id} />
+        <.markdown_document document={@document} focused_block_id={@focused_block_id} image_statuses={@image_statuses} />
 
         <.live_component
           :if={@show_autocomplete}
@@ -103,6 +103,13 @@ defmodule NotaWeb.NoteLive.Editor do
   def mount(%{"id" => id}, _session, socket) do
     note = Notes.get_note!(socket.assigns.current_scope, id)
     document = parse_body(note.body)
+    image_statuses = Uploads.image_statuses_for_note(note.id)
+
+    if connected?(socket) do
+      for {key, status} <- image_statuses, status != :completed do
+        Phoenix.PubSub.subscribe(Nota.PubSub, "image:#{key}")
+      end
+    end
 
     {:ok,
      socket
@@ -110,6 +117,7 @@ defmodule NotaWeb.NoteLive.Editor do
      |> assign(:note, note)
      |> assign(:title, note.title || "")
      |> assign(:document, document)
+     |> assign(:image_statuses, image_statuses)
      |> assign(:focused_block_id, nil)
      |> assign(:cursor_offset, 0)
      |> assign(:has_unsaved_changes, false)
@@ -408,6 +416,13 @@ defmodule NotaWeb.NoteLive.Editor do
               note_id: socket.assigns.note.id
             })
 
+          # Subscribe for processing completion and broadcast mash request
+          Phoenix.PubSub.subscribe(Nota.PubSub, "image:#{image_key}")
+          bucket = Application.get_env(:nota, :s3)[:bucket]
+
+          Phoenix.PubSub.broadcast(:masher_pubsub, "mash_requests",
+            {:mash_image, bucket, image_key, [{"display", 1200, 80}]})
+
           # Create ImageBlock and insert into document with filename as alt text
           {document, new_id} =
             Document.new_image_block(
@@ -417,9 +432,12 @@ defmodule NotaWeb.NoteLive.Editor do
               alt_text: alt_text
             )
 
+          image_statuses = Map.put(socket.assigns.image_statuses, image_key, :pending)
+
           {:noreply,
            socket
            |> assign(:document, document)
+           |> assign(:image_statuses, image_statuses)
            |> assign(:drop_target_block_id, nil)
            |> assign(:is_dragging, false)
            |> assign(:has_unsaved_changes, true)
@@ -438,6 +456,12 @@ defmodule NotaWeb.NoteLive.Editor do
   end
 
   # === handle_info callbacks
+
+  @impl true
+  def handle_info(:image_processed, socket) do
+    image_statuses = Uploads.image_statuses_for_note(socket.assigns.note.id)
+    {:noreply, assign(socket, :image_statuses, image_statuses)}
+  end
 
   # Note link selected from autocomplete
   @impl true

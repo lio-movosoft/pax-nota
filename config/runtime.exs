@@ -24,6 +24,11 @@ config :nota, NotaWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 # S3/MinIO configuration from environment variables (for all environments)
+# Masher node for image processing (distributed Erlang)
+if masher_node = System.get_env("MASHER_NODE") do
+  config :nota, :masher_node, String.to_atom(masher_node)
+end
+
 if System.get_env("S3_BUCKET") do
   config :nota, :s3,
     bucket: System.get_env("S3_BUCKET"),
