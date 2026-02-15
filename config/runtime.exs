@@ -20,8 +20,7 @@ if System.get_env("PHX_SERVER") do
   config :nota, NotaWeb.Endpoint, server: true
 end
 
-config :nota, NotaWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+config :nota, NotaWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 # S3/MinIO configuration from environment variables (for all environments)
 # Masher node for image processing (distributed Erlang)
@@ -82,6 +81,9 @@ if config_env() == :prod do
       # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
       # for details about using IPv6 vs IPv4 and loopback vs public addresses.
       ip: {0, 0, 0, 0, 0, 0, 0, 0}
+    ],
+    check_origin: [
+      "https://nota.movosoft.com"
     ],
     secret_key_base: secret_key_base
 
