@@ -31,9 +31,9 @@ end
 if System.get_env("S3_BUCKET") do
   config :nota, :s3,
     bucket: System.get_env("S3_BUCKET"),
-    region: System.get_env("S3_REGION", "us-east-1"),
-    host: System.get_env("S3_HOST"),
-    port: System.get_env("S3_PORT") |> String.to_integer(),
+    region: System.get_env("S3_REGION", "ap-southeast-1"),
+    host: System.get_env("S3_HOST", "s3.ap-southeast-1.amazonaws.com"),
+    port: System.get_env("S3_PORT", "443") |> String.to_integer(),
     scheme: System.get_env("S3_SCHEME", "https://"),
     access_key_id: System.get_env("AWS_ACCESS_KEY_ID"),
     secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY")
@@ -69,7 +69,7 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host = System.get_env("PHX_HOST", "example.com")
 
   config :nota, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
